@@ -6,20 +6,24 @@ Transports for the Logger module for MCP Agent, including:
 
 import asyncio
 import json
+import uuid
+import datetime
 from abc import ABC, abstractmethod
 from typing import Dict, List, Protocol
 from pathlib import Path
 
 import aiohttp
 from opentelemetry import trace
-from rich.console import Console
 from rich.json import JSON
 from rich.text import Text
 
 from mcp_agent.config import LoggerSettings
+from mcp_agent.console import console
 from mcp_agent.logging.events import Event, EventFilter
 from mcp_agent.logging.json_serializer import JSONSerializer
 from mcp_agent.logging.listeners import EventListener, LifecycleAwareListener
+from rich import print
+import traceback
 
 
 class EventTransport(Protocol):
@@ -67,18 +71,22 @@ class ConsoleTransport(FilteredEventTransport):
 
     def __init__(self, event_filter: EventFilter | None = None):
         super().__init__(event_filter=event_filter)
-        self.console = Console()
+        # Use shared console instances
+        self._serializer = JSONSerializer()
         self.log_level_styles: Dict[str, str] = {
             "info": "bold green",
             "debug": "dim white",
             "warning": "bold yellow",
             "error": "bold red",
         }
-        self._serializer = JSONSerializer()
 
     async def send_matched_event(self, event: Event):
         # Map log levels to styles
         style = self.log_level_styles.get(event.type, "white")
+
+        # Use the appropriate console based on event type
+        #        output_console = error_console if event.type == "error" else console
+        output_console = console
 
         # Create namespace without None
         namespace = event.namespace
@@ -87,16 +95,16 @@ class ConsoleTransport(FilteredEventTransport):
 
         log_text = Text.assemble(
             (f"[{event.type.upper()}] ", style),
-            (f"{event.timestamp.isoformat()} ", "cyan"),
+            (f"{event.timestamp.replace(microsecond=0).isoformat()} ", "cyan"),
             (f"{namespace} ", "magenta"),
             (f"- {event.message}", "white"),
         )
-        self.console.print(log_text)
+        output_console.print(log_text)
 
-        # Print additional data as a JSON if available
+        # Print additional data as JSON if available
         if event.data:
             serialized_data = self._serializer(event.data)
-            self.console.print(JSON.from_data(serialized_data))
+            output_console.print(JSON.from_data(serialized_data))
 
 
 class FileTransport(FilteredEventTransport):
@@ -150,8 +158,8 @@ class FileTransport(FilteredEventTransport):
 
         try:
             with open(self.filepath, mode=self.mode, encoding=self.encoding) as f:
-                # Write the log entry as JSON with newline
-                f.write(json.dumps(log_entry, indent=2) + "\n")
+                # Write the log entry as compact JSON (JSONL format)
+                f.write(json.dumps(log_entry, separators=(",", ":")) + "\n")
                 f.flush()  # Ensure writing to disk
         except IOError as e:
             # Log error without recursion
@@ -285,6 +293,21 @@ class AsyncEventBus:
             cls._instance.transport = transport
         return cls._instance
 
+    @classmethod
+    def reset(cls) -> None:
+        """
+        Reset the singleton instance.
+        This is primarily useful for testing scenarios where you need to ensure
+        a clean state between tests.
+        """
+        if cls._instance:
+            # Signal shutdown
+            cls._instance._running = False
+            cls._instance._stop_event.set()
+
+            # Clear the singleton instance
+            cls._instance = None
+
     async def start(self):
         """Start the event bus and all lifecycle-aware listeners."""
         if self._running:
@@ -377,11 +400,19 @@ class AsyncEventBus:
     async def _process_events(self):
         """Process events from the queue until stopped."""
         while self._running:
+            event = None
             try:
                 # Use wait_for with a timeout to allow checking running state
                 try:
+                    # Check if we should be stopping first
+                    if not self._running or self._stop_event.is_set():
+                        break
+
                     event = await asyncio.wait_for(self._queue.get(), timeout=0.1)
                 except asyncio.TimeoutError:
+                    # Check again before continuing
+                    if not self._running or self._stop_event.is_set():
+                        break
                     continue
 
                 # Process the event through all listeners
@@ -397,14 +428,19 @@ class AsyncEventBus:
                     for r in results:
                         if isinstance(r, Exception):
                             print(f"Error in listener: {r}")
-
-                self._queue.task_done()
+                            print(
+                                f"Stacktrace: {''.join(traceback.format_exception(type(r), r, r.__traceback__))}"
+                            )
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 print(f"Error in event processing loop: {e}")
                 continue
+            finally:
+                # Always mark the task as done if we got an event
+                if event is not None:
+                    self._queue.task_done()
 
         # Process remaining events in queue
         while not self._queue.empty():
@@ -423,30 +459,126 @@ class AsyncEventBus:
                 break
 
 
+class MultiTransport(EventTransport):
+    """Transport that sends events to multiple configured transports."""
+
+    def __init__(self, transports: List[EventTransport]):
+        """Initialize MultiTransport with a list of transports.
+
+        Args:
+            transports: List of EventTransport instances to use
+        """
+        self.transports = transports
+
+    async def send_event(self, event: Event):
+        """Send event to all configured transports in parallel.
+
+        Args:
+            event: Event to send
+        """
+
+        # helper function to handle exceptions
+        async def send_with_exception_handling(transport):
+            try:
+                await transport.send_event(event)
+                return None
+            except Exception as e:
+                return (transport, e)
+
+        results = await asyncio.gather(
+            *[send_with_exception_handling(transport) for transport in self.transports],
+            return_exceptions=False,
+        )
+
+        exceptions = [result for result in results if result is not None]
+        if exceptions:
+            print(f"Errors occurred in {len(exceptions)} transports:")
+            for transport, exc in exceptions:
+                print(f"  {transport.__class__.__name__}: {exc}")
+
+
+def get_log_filename(settings: LoggerSettings, session_id: str | None = None) -> str:
+    """Generate a log filename based on the configuration.
+
+    Args:
+        settings: Logger settings containing path configuration
+        session_id: Optional session ID to use in the filename
+
+    Returns:
+        String path for the log file
+    """
+    # If we have a standard path setting and no advanced path settings, use the standard path
+    if settings.path and not settings.path_settings:
+        return settings.path
+
+    # If we have advanced path settings, use those
+    if settings.path_settings:
+        path_pattern = settings.path_settings.path_pattern
+        unique_id_type = settings.path_settings.unique_id
+
+        # Only use session_id when explicitly configured as "session_id"
+        if unique_id_type == "session_id":
+            # Use provided session_id if available, otherwise generate a new UUID
+            unique_id = session_id if session_id else str(uuid.uuid4())
+        else:  # For any other setting (including "timestamp"), use the original behavior
+            now = datetime.datetime.now()
+            time_format = settings.path_settings.timestamp_format
+            unique_id = now.strftime(time_format)
+
+        return path_pattern.replace("{unique_id}", unique_id)
+
+    raise ValueError("No path settings provided")
+
+
 def create_transport(
-    settings: LoggerSettings, event_filter: EventFilter | None = None
+    settings: LoggerSettings,
+    event_filter: EventFilter | None = None,
+    session_id: str | None = None,
 ) -> EventTransport:
     """Create event transport based on settings."""
-    if settings.type == "none":
-        return NoOpTransport(event_filter=event_filter)
-    elif settings.type == "console":
-        return ConsoleTransport(event_filter=event_filter)
-    elif settings.type == "file":
-        if not settings.path:
-            raise ValueError("File path required for file transport")
-        return FileTransport(
-            filepath=settings.path,
-            event_filter=event_filter,
-        )
-    elif settings.type == "http":
-        if not settings.http_endpoint:
-            raise ValueError("HTTP endpoint required for HTTP transport")
-        return HTTPTransport(
-            endpoint=settings.http_endpoint,
-            headers=settings.http_headers,
-            batch_size=settings.batch_size,
-            timeout=settings.http_timeout,
-            event_filter=event_filter,
-        )
+    transports: List[EventTransport] = []
+    transport_types = []
+
+    # Determine which transport types to use (from new or legacy config)
+    if hasattr(settings, "transports") and settings.transports:
+        transport_types = settings.transports
     else:
-        raise ValueError(f"Unsupported transport type: {settings.type}")
+        transport_types = [settings.type]
+
+    for transport_type in transport_types:
+        if transport_type == "none":
+            continue
+        elif transport_type == "console":
+            transports.append(ConsoleTransport(event_filter=event_filter))
+        elif transport_type == "file":
+            filepath = get_log_filename(settings, session_id)
+            if not filepath:
+                raise ValueError(
+                    "File path required for file transport. Either specify 'path' or configure 'path_settings'"
+                )
+
+            transports.append(
+                FileTransport(filepath=filepath, event_filter=event_filter)
+            )
+        elif transport_type == "http":
+            if not settings.http_endpoint:
+                raise ValueError("HTTP endpoint required for HTTP transport")
+
+            transports.append(
+                HTTPTransport(
+                    endpoint=settings.http_endpoint,
+                    headers=settings.http_headers,
+                    batch_size=settings.batch_size,
+                    timeout=settings.http_timeout,
+                    event_filter=event_filter,
+                )
+            )
+        else:
+            raise ValueError(f"Unsupported transport type: {transport_type}")
+
+    if not transports:
+        return NoOpTransport(event_filter=event_filter)
+    elif len(transports) == 1:
+        return transports[0]
+    else:
+        return MultiTransport(transports)

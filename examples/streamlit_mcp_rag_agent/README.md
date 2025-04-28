@@ -5,18 +5,22 @@ This Streamlit example shows a RAG Agent that is able to augment its responses u
 ## Usage
 
 Download latest Qdrant image from Dockerhub:
+
 ```bash
 docker pull qdrant/qdrant
 ```
 
 Then, run the Qdrant server locally with docker:
+
 ```bash
 docker run -p 6333:6333 -v $(pwd)/qdrant_storage:/qdrant/storage qdrant/qdrant
 ```
 
 Finally, run the example:
+
 ```bash
-streamlit run main.py
+uv pip install -r requirements.txt
+uv run streamlit run main.py
 ```
 
 <img width="834" alt="Image" src="https://github.com/user-attachments/assets/14072029-1f37-4ac5-bccf-a76e726ba9b2" />

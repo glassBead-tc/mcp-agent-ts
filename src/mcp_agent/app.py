@@ -1,12 +1,14 @@
 from typing import Any, Dict, Optional, Type, TypeVar, Callable
 from datetime import timedelta
 import asyncio
+import sys
+import uuid
 from contextlib import asynccontextmanager
 
 from mcp import ServerSession
-
 from mcp_agent.context import Context, initialize_context, cleanup_context
 from mcp_agent.config import Settings
+from mcp_agent.event_progress import ProgressAction
 from mcp_agent.logging.logger import get_logger
 from mcp_agent.executor.workflow_signal import SignalWaitCallback
 from mcp_agent.human_input.types import HumanInputCallback
@@ -40,7 +42,7 @@ class MCPApp:
     def __init__(
         self,
         name: str = "mcp_application",
-        settings: Optional[Settings] = None,
+        settings: Optional[Settings] | str = None,
         human_input_callback: Optional[HumanInputCallback] = console_input_callback,
         signal_notification: Optional[SignalWaitCallback] = None,
         upstream_session: Optional["ServerSession"] = None,
@@ -50,7 +52,8 @@ class MCPApp:
         Initialize the application with a name and optional settings.
         Args:
             name: Name of the application
-            settings: Application configuration - If unspecified, the settings are loaded from mcp_agent.config.yaml
+            settings: Application configuration - If unspecified, the settings are loaded from mcp_agent.config.yaml.
+                If this is a string, it is treated as the path to the config file to load.
             human_input_callback: Callback for handling human input
             signal_notification: Callback for getting notified on workflow signals/events.
             upstream_session: Optional upstream session if the MCPApp is running as a server to an MCP client.
@@ -59,7 +62,7 @@ class MCPApp:
         self.name = name
 
         # We use these to initialize the context in initialize()
-        self._config = settings
+        self._config_or_path = settings
         self._human_input_callback = human_input_callback
         self._signal_notification = signal_notification
         self._upstream_session = upstream_session
@@ -69,6 +72,15 @@ class MCPApp:
         self._logger = None
         self._context: Optional[Context] = None
         self._initialized = False
+
+        try:
+            # Set event loop policy for Windows
+            if sys.platform == "win32":
+                import asyncio
+
+                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        finally:
+            pass
 
     @property
     def context(self) -> Context:
@@ -113,7 +125,8 @@ class MCPApp:
     @property
     def logger(self):
         if self._logger is None:
-            self._logger = get_logger(f"mcp_agent.{self.name}")
+            session_id = self._context.session_id if self._context else None
+            self._logger = get_logger(f"mcp_agent.{self.name}", session_id=session_id)
         return self._logger
 
     async def initialize(self):
@@ -121,7 +134,13 @@ class MCPApp:
         if self._initialized:
             return
 
-        self._context = await initialize_context(self._config)
+        # Generate a session ID first
+        session_id = str(uuid.uuid4())
+
+        # Pass the session ID to initialize_context
+        self._context = await initialize_context(
+            self._config_or_path, store_globally=True, session_id=session_id
+        )
 
         # Set the properties that were passed in the constructor
         self._context.human_input_handler = self._human_input_callback
@@ -130,14 +149,36 @@ class MCPApp:
         self._context.model_selector = self._model_selector
 
         self._initialized = True
-        self.logger.info("MCPAgent initialized")
+        self.logger.info(
+            "MCPAgent initialized",
+            data={
+                "progress_action": "Running",
+                "target": self.name,
+                "agent_name": "mcp_application_loop",
+                "session_id": session_id,
+            },
+        )
 
     async def cleanup(self):
         """Cleanup application resources."""
         if not self._initialized:
             return
 
-        await cleanup_context()
+        # Updatre progress display before logging is shut down
+        self.logger.info(
+            "MCPAgent cleanup",
+            data={
+                "progress_action": ProgressAction.FINISHED,
+                "target": self.name or "mcp_app",
+                "agent_name": "mcp_application_loop",
+            },
+        )
+
+        try:
+            await cleanup_context()
+        except asyncio.CancelledError:
+            self.logger.debug("Cleanup cancelled during shutdown")
+
         self._context = None
         self._initialized = False
 

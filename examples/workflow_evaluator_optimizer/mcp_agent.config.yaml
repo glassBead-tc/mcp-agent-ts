@@ -21,9 +21,7 @@ mcp:
       args:
         [
           "-y",
-          "@modelcontextprotocol/server-filesystem",
-          "/Users/saqadri/Desktop",
-          "/Users/saqadri/Downloads",
+          "@modelcontextprotocol/server-filesystem"
         ]
 
 openai:

@@ -42,7 +42,7 @@ async def example_usage():
 
             # Let's switch the same agent to a different LLM
             result = await llm.generate_str(
-                message="Print the first 2 paragraphs of https://www.anthropic.com/research/building-effective-agents",
+                message="Print the first 2 paragraphs of https://modelcontextprotocol.io/introduction",
                 request_params=RequestParams(model="llama3.1:8b"),
             )
             logger.info(f"Result: {result}")

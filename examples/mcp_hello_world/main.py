@@ -25,34 +25,37 @@ async def example_usage():
             result = await fetch_client.list_tools()
             logger.info("Tools available:", data=result.model_dump())
 
-        # Connect to the filesystem server using a persistent connection via connect/disconnect
-        # This is useful when you need to make multiple requests to the same server
+            # Connect to the filesystem server using a persistent connection via connect/disconnect
+            # This is useful when you need to make multiple requests to the same server
 
-        connection_manager = MCPConnectionManager(context.server_registry)
-        await connection_manager.__aenter__()
+            connection_manager = MCPConnectionManager(context.server_registry)
+            await connection_manager.__aenter__()
 
-        try:
-            filesystem_client = await connection_manager.get_server(
-                server_name="filesystem", client_session_factory=MCPAgentClientSession
-            )
-            logger.info("filesystem: Connected to server with persistent connection.")
+            try:
+                filesystem_client = await connection_manager.get_server(
+                    server_name="filesystem",
+                    client_session_factory=MCPAgentClientSession,
+                )
+                logger.info(
+                    "filesystem: Connected to server with persistent connection."
+                )
 
-            fetch_client = await connection_manager.get_server(
-                server_name="fetch", client_session_factory=MCPAgentClientSession
-            )
-            logger.info("fetch: Connected to server with persistent connection.")
+                fetch_client = await connection_manager.get_server(
+                    server_name="fetch", client_session_factory=MCPAgentClientSession
+                )
+                logger.info("fetch: Connected to server with persistent connection.")
 
-            result = await filesystem_client.session.list_tools()
-            logger.info("filesystem: Tools available:", data=result.model_dump())
+                result = await filesystem_client.session.list_tools()
+                logger.info("filesystem: Tools available:", data=result.model_dump())
 
-            result = await fetch_client.session.list_tools()
-            logger.info("fetch: Tools available:", data=result.model_dump())
-        finally:
-            await connection_manager.disconnect_server(server_name="filesystem")
-            logger.info("filesystem: Disconnected from server.")
-            await connection_manager.disconnect_server(server_name="fetch")
-            logger.info("fetch: Disconnected from server.")
-            await connection_manager.__aexit__(None, None, None)
+                result = await fetch_client.session.list_tools()
+                logger.info("fetch: Tools available:", data=result.model_dump())
+            finally:
+                await connection_manager.disconnect_server(server_name="filesystem")
+                logger.info("filesystem: Disconnected from server.")
+                await connection_manager.disconnect_server(server_name="fetch")
+                logger.info("fetch: Disconnected from server.")
+                await connection_manager.__aexit__(None, None, None)
 
 
 if __name__ == "__main__":

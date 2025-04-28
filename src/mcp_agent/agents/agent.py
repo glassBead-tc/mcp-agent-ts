@@ -39,7 +39,7 @@ class Agent(MCPAggregator):
 
     def __init__(
         self,
-        name: str,
+        name: str,  # agent name
         instruction: str | Callable[[Dict], str] = "You are a helpful agent.",
         server_names: List[str] = None,
         functions: List[Callable] = None,
@@ -52,6 +52,7 @@ class Agent(MCPAggregator):
             context=context,
             server_names=server_names or [],
             connection_persistence=connection_persistence,
+            name=name,
             **kwargs,
         )
 
@@ -59,27 +60,18 @@ class Agent(MCPAggregator):
         self.instruction = instruction
         self.functions = functions or []
         self.executor = self.context.executor
+        self.logger = get_logger(f"{__name__}.{name}")
 
         # Map function names to tools
         self._function_tool_map: Dict[str, FastTool] = {}
+        for function in self.functions:
+            tool: FastTool = FastTool.from_function(function)
+            self._function_tool_map[tool.name] = tool
 
         self.human_input_callback: HumanInputCallback | None = human_input_callback
         if not human_input_callback:
             if self.context.human_input_handler:
                 self.human_input_callback = self.context.human_input_handler
-
-    async def initialize(self):
-        """
-        Initialize the agent and connect to the MCP servers.
-        NOTE: This method is called automatically when the agent is used as an async context manager.
-        """
-        await (
-            self.__aenter__()
-        )  # This initializes the connection manager and loads the servers
-
-        for function in self.functions:
-            tool: FastTool = FastTool.from_function(function)
-            self._function_tool_map[tool.name] = tool
 
     async def attach_llm(self, llm_factory: Callable[..., LLM]) -> LLM:
         """
@@ -125,12 +117,12 @@ class Agent(MCPAggregator):
         request_id = f"{HUMAN_INPUT_SIGNAL_NAME}_{self.name}_{uuid.uuid4()}"
         request.request_id = request_id
 
-        logger.debug("Requesting human input:", data=request)
+        self.logger.debug("Requesting human input:", data=request)
 
         async def call_callback_and_signal():
             try:
                 user_input = await self.human_input_callback(request)
-                logger.debug("Received human input:", data=user_input)
+                self.logger.debug("Received human input:", data=user_input)
                 await self.executor.signal(signal_name=request_id, payload=user_input)
             except Exception as e:
                 await self.executor.signal(
@@ -139,7 +131,7 @@ class Agent(MCPAggregator):
 
         asyncio.create_task(call_callback_and_signal())
 
-        logger.debug("Waiting for human input signal")
+        self.logger.debug("Waiting for human input signal")
 
         # Wait for signal (workflow is paused here)
         result = await self.executor.wait_for_signal(
@@ -151,7 +143,7 @@ class Agent(MCPAggregator):
             signal_type=HumanInputResponse,  # TODO: saqadri - should this be HumanInputResponse?
         )
 
-        logger.debug("Received human input signal", data=result)
+        self.logger.debug("Received human input signal", data=result)
         return result
 
     async def list_tools(self) -> ListToolsResult:
@@ -172,7 +164,7 @@ class Agent(MCPAggregator):
 
         # Add a human_input_callback as a tool
         if not self.human_input_callback:
-            logger.debug("Human input callback not set")
+            self.logger.debug("Human input callback not set")
             return result
 
         # Add a human_input_callback as a tool
@@ -181,12 +173,17 @@ class Agent(MCPAggregator):
             Tool(
                 name=HUMAN_INPUT_TOOL_NAME,
                 description=human_input_tool.description,
-                inputSchema=human_input_tool.parameters,
+                inputSchema={
+                    "type": "object",
+                    "properties": {"request": HumanInputRequest.model_json_schema()},
+                    "required": ["request"],
+                },
             )
         )
 
         return result
 
+    # todo would prefer to use tool_name to disambiguate agent name
     async def call_tool(
         self, name: str, arguments: dict | None = None
     ) -> CallToolResult:

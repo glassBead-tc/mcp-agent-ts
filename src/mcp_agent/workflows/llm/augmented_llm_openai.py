@@ -1,7 +1,7 @@
 import json
+import re
 from typing import Iterable, List, Type
 
-import instructor
 from openai import OpenAI
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
@@ -36,8 +36,6 @@ from mcp_agent.workflows.llm.augmented_llm import (
 )
 from mcp_agent.logging.logger import get_logger
 
-logger = get_logger(__name__)
-
 
 class OpenAIAugmentedLLM(
     AugmentedLLM[ChatCompletionMessageParam, ChatCompletionMessage]
@@ -52,18 +50,37 @@ class OpenAIAugmentedLLM(
         super().__init__(*args, type_converter=MCPOpenAITypeConverter, **kwargs)
 
         self.provider = "OpenAI"
+        # Initialize logger with name if available
+        self.logger = get_logger(f"{__name__}.{self.name}" if self.name else __name__)
 
         self.model_preferences = self.model_preferences or ModelPreferences(
             costPriority=0.3,
             speedPriority=0.4,
             intelligencePriority=0.3,
         )
+        # Get default model from config if available
+        chosen_model = "gpt-4o"  # Fallback default
+
+        self._reasoning_effort = "medium"
+        if self.context and self.context.config and self.context.config.openai:
+            if hasattr(self.context.config.openai, "default_model"):
+                chosen_model = self.context.config.openai.default_model
+            if hasattr(self.context.config.openai, "reasoning_effort"):
+                self._reasoning_effort = self.context.config.openai.reasoning_effort
+
+        self._reasoning = lambda model : model.startswith(("o1","o3","o4"))
+
+        if self._reasoning(chosen_model):
+            self.logger.info(
+                f"Using reasoning model '{chosen_model}' with '{self._reasoning_effort}' reasoning effort"
+            )
+
         self.default_request_params = self.default_request_params or RequestParams(
-            model="gpt-4o",
+            model=chosen_model,
             modelPreferences=self.model_preferences,
-            maxTokens=2048,
+            maxTokens=4096,
             systemPrompt=self.instruction,
-            parallel_tool_calls=True,
+            parallel_tool_calls=False,
             max_iterations=10,
             use_history=True,
         )
@@ -73,14 +90,18 @@ class OpenAIAugmentedLLM(
         cls, message: ChatCompletionMessage, **kwargs
     ) -> ChatCompletionMessageParam:
         """Convert a response object to an input parameter object to allow LLM calls to be chained."""
-        return ChatCompletionAssistantMessageParam(
-            role="assistant",
-            content=message.content,
-            tool_calls=message.tool_calls,
-            audio=message.audio,
-            refusal=message.refusal,
+        assistant_message_params = {
+            "role": "assistant",
+            "audio": message.audio,
+            "refusal": message.refusal,
             **kwargs,
-        )
+        }
+        if message.content is not None:
+            assistant_message_params["content"] = message.content
+        if message.tool_calls is not None:
+            assistant_message_params["tool_calls"] = message.tool_calls
+
+        return ChatCompletionAssistantMessageParam(**assistant_message_params)
 
     async def generate(self, message, request_params: RequestParams | None = None):
         """
@@ -95,14 +116,14 @@ class OpenAIAugmentedLLM(
         messages: List[ChatCompletionMessageParam] = []
         params = self.get_request_params(request_params)
 
+        if params.use_history:
+            messages.extend(self.history.get())
+
         system_prompt = self.instruction or params.systemPrompt
-        if system_prompt:
+        if system_prompt and len(messages) == 0:
             messages.append(
                 ChatCompletionSystemMessageParam(role="system", content=system_prompt)
             )
-
-        if params.use_history:
-            messages.extend(self.history.get())
 
         if isinstance(message, str):
             messages.append(
@@ -138,20 +159,27 @@ class OpenAIAugmentedLLM(
                 "messages": messages,
                 "stop": params.stopSequences,
                 "tools": available_tools,
-                "max_tokens": params.maxTokens,
             }
-
-            if available_tools:
-                arguments["tools"] = available_tools
-                arguments["parallel_tool_calls"] = params.parallel_tool_calls
+            if self._reasoning(model):
+                arguments = {
+                    **arguments,
+                    
+                    # DEPRECATED: https://platform.openai.com/docs/api-reference/chat/create#chat-create-max_tokens
+                    # "max_tokens": params.maxTokens,
+                    
+                    "max_completion_tokens": params.maxTokens,
+                    "reasoning_effort": self._reasoning_effort,
+                }
+            else:
+                arguments = {**arguments, "max_tokens": params.maxTokens}
+                # if available_tools:
+                #     arguments["parallel_tool_calls"] = params.parallel_tool_calls
 
             if params.metadata:
                 arguments = {**arguments, **params.metadata}
 
-            logger.debug(
-                f"Iteration {i}: Calling OpenAI ChatCompletion with messages:",
-                data=messages,
-            )
+            self.logger.debug(f"{arguments}")
+            self._log_chat_progress(chat_turn=len(messages) // 2, model=model)
 
             executor_result = await self.executor.execute(
                 openai_client.chat.completions.create, **arguments
@@ -159,13 +187,13 @@ class OpenAIAugmentedLLM(
 
             response = executor_result[0]
 
-            logger.debug(
-                f"Iteration {i}: OpenAI ChatCompletion response:",
+            self.logger.debug(
+                "OpenAI ChatCompletion response:",
                 data=response,
             )
 
             if isinstance(response, BaseException):
-                logger.error(f"Error: {response}")
+                self.logger.error(f"Error: {response}")
                 break
 
             if not response.choices or len(response.choices) == 0:
@@ -178,8 +206,15 @@ class OpenAIAugmentedLLM(
             message = choice.message
             responses.append(message)
 
+            # Fixes an issue with openai validation that does not allow non alphanumeric characters, dashes, and underscores
+            sanitized_name = (
+                re.sub(r"[^a-zA-Z0-9_-]", "_", self.name)
+                if isinstance(self.name, str)
+                else None
+            )
+
             converted_message = self.convert_message_to_message_param(
-                message, name=self.name
+                message, name=sanitized_name
             )
             messages.append(converted_message)
 
@@ -194,13 +229,13 @@ class OpenAIAugmentedLLM(
                 ]
                 # Wait for all tool calls to complete.
                 tool_results = await self.executor.execute(*tool_tasks)
-                logger.debug(
+                self.logger.debug(
                     f"Iteration {i}: Tool call results: {str(tool_results) if tool_results else 'None'}"
                 )
                 # Add non-None results to messages.
                 for result in tool_results:
                     if isinstance(result, BaseException):
-                        logger.error(
+                        self.logger.error(
                             f"Warning: Unexpected error during tool execution: {result}. Continuing..."
                         )
                         continue
@@ -208,24 +243,28 @@ class OpenAIAugmentedLLM(
                         messages.append(result)
             elif choice.finish_reason == "length":
                 # We have reached the max tokens limit
-                logger.debug(
+                self.logger.debug(
                     f"Iteration {i}: Stopping because finish_reason is 'length'"
                 )
                 # TODO: saqadri - would be useful to return the reason for stopping to the caller
                 break
             elif choice.finish_reason == "content_filter":
                 # The response was filtered by the content filter
-                logger.debug(
+                self.logger.debug(
                     f"Iteration {i}: Stopping because finish_reason is 'content_filter'"
                 )
                 # TODO: saqadri - would be useful to return the reason for stopping to the caller
                 break
             elif choice.finish_reason == "stop":
-                logger.debug(f"Iteration {i}: Stopping because finish_reason is 'stop'")
+                self.logger.debug(
+                    f"Iteration {i}: Stopping because finish_reason is 'stop'"
+                )
                 break
 
         if params.use_history:
             self.history.set(messages)
+
+        self._log_chat_finished(model=model)
 
         return responses
 
@@ -267,6 +306,8 @@ class OpenAIAugmentedLLM(
         # We need to do this in a two-step process because Instructor doesn't
         # know how to invoke MCP tools via call_tool, so we'll handle all the
         # processing first and then pass the final response through Instructor
+        import instructor
+
         response = await self.generate_str(
             message=message,
             request_params=request_params,
@@ -274,7 +315,10 @@ class OpenAIAugmentedLLM(
 
         # Next we pass the text through instructor to extract structured data
         client = instructor.from_openai(
-            OpenAI(api_key=self.context.config.openai.api_key, base_url=self.context.config.openai.base_url),
+            OpenAI(
+                api_key=self.context.config.openai.api_key,
+                base_url=self.context.config.openai.base_url,
+            ),
             mode=instructor.Mode.TOOLS_STRICT,
         )
 
@@ -336,7 +380,9 @@ class OpenAIAugmentedLLM(
             return ChatCompletionToolMessageParam(
                 role="tool",
                 tool_call_id=tool_call_id,
-                content=[mcp_content_to_openai_content(c) for c in result.content],
+                content="\n".join(
+                    str(mcp_content_to_openai_content(c)) for c in result.content
+                ),
             )
 
         return None
@@ -481,6 +527,13 @@ class MCPOpenAITypeConverter(
 def mcp_content_to_openai_content(
     content: TextContent | ImageContent | EmbeddedResource,
 ) -> ChatCompletionContentPartTextParam:
+    if isinstance(content, list):
+        # Handle list of content items
+        return ChatCompletionContentPartTextParam(
+            type="text",
+            text="\n".join(mcp_content_to_openai_content(c) for c in content),
+        )
+
     if isinstance(content, TextContent):
         return ChatCompletionContentPartTextParam(type="text", text=content.text)
     elif isinstance(content, ImageContent):

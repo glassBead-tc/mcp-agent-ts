@@ -6,6 +6,7 @@ from mcp_agent.agents.agent import Agent
 from mcp_agent.workflows.llm.augmented_llm import RequestParams
 from mcp_agent.workflows.llm.augmented_llm_openai import OpenAIAugmentedLLM
 from mcp_agent.workflows.orchestrator.orchestrator import Orchestrator
+from rich import print
 
 # The orchestrator is a high-level abstraction that allows you to generate dynamic plans
 # and execute them using multiple agents and servers.

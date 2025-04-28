@@ -1,6 +1,15 @@
 from abc import abstractmethod
 
-from typing import Generic, List, Optional, Protocol, Type, TypeVar, TYPE_CHECKING
+from typing import (
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    Type,
+    TypeVar,
+    Union,
+    TYPE_CHECKING,
+)
 
 from pydantic import Field
 
@@ -20,6 +29,7 @@ from mcp_agent.workflows.llm.llm_selector import ModelSelector
 if TYPE_CHECKING:
     from mcp_agent.agents.agent import Agent
     from mcp_agent.context import Context
+    from mcp_agent.logging.logger import Logger
 
 MessageParamT = TypeVar("MessageParamT")
 """A type representing an input message to an LLM."""
@@ -109,10 +119,15 @@ class RequestParams(CreateMessageRequestParams):
     The maximum number of iterations to run the LLM for.
     """
 
-    parallel_tool_calls: bool = True
+    parallel_tool_calls: bool = False
     """
     Whether to allow multiple tool calls per iteration.
     Also known as multi-step tool use.
+    """
+
+    temperature: float = 0.7
+    """
+    The likelihood of the model selecting higher-probability options while generating a response.
     """
 
 
@@ -161,6 +176,12 @@ class ProviderToMCPConverter(Protocol, Generic[MessageParamT, MessageT]):
     def from_mcp_message_param(cls, param: MCPMessageParam) -> MessageParamT:
         """Convert an MCP message (SamplingMessage) to an LLM input type."""
 
+    @classmethod
+    def from_mcp_tool_result(
+        cls, result: CallToolResult, tool_use_id: str
+    ) -> MessageParamT:
+        """Convert an MCP tool result to an LLM input type"""
+
 
 class AugmentedLLM(ContextDependent, AugmentedLLMProtocol[MessageParamT, MessageT]):
     """
@@ -174,6 +195,7 @@ class AugmentedLLM(ContextDependent, AugmentedLLMProtocol[MessageParamT, Message
     # TODO: saqadri - consider adding middleware patterns for pre/post processing of messages, for now we have pre/post_tool_call
 
     provider: str | None = None
+    logger: Union["Logger", None] = None
 
     def __init__(
         self,
@@ -298,6 +320,12 @@ class AugmentedLLM(ContextDependent, AugmentedLLMProtocol[MessageParamT, Message
         """Convert an MCP message (SamplingMessage) to an LLM input type."""
         return self.type_converter.from_mcp_message_param(param)
 
+    def from_mcp_tool_result(
+        self, result: CallToolResult, tool_use_id: str
+    ) -> MessageParamT:
+        """Convert an MCP tool result to an LLM input type"""
+        return self.type_converter.from_mcp_tool_result(result, tool_use_id)
+
     @classmethod
     def convert_message_to_message_param(
         cls, message: MessageT, **kwargs
@@ -387,3 +415,33 @@ class AugmentedLLM(ContextDependent, AugmentedLLMProtocol[MessageParamT, Message
     def message_str(self, message: MessageT) -> str:
         """Convert an output message to a string representation."""
         return str(message)
+
+    def _log_chat_progress(
+        self, chat_turn: Optional[int] = None, model: Optional[str] = None
+    ):
+        """Log a chat progress event"""
+        data = {
+            "progress_action": "Chatting",
+            "model": model,
+            "agent_name": self.name,
+            "chat_turn": chat_turn if chat_turn is not None else None,
+        }
+        self.logger.debug("Chat in progress", data=data)
+
+    def _log_chat_finished(self, model: Optional[str] = None):
+        """Log a chat finished event"""
+        data = {"progress_action": "Finished", "model": model, "agent_name": self.name}
+        self.logger.debug("Chat finished", data=data)
+
+
+def image_url_to_mime_and_base64(url: str) -> tuple[str, str]:
+    """
+    Extract mime type and base64 data from ImageUrl
+    """
+    import re
+
+    match = re.match(r"data:(image/\w+);base64,(.*)", url)
+    if not match:
+        raise ValueError(f"Invalid image data URI: {url[:30]}...")
+    mime_type, base64_data = match.groups()
+    return mime_type, base64_data

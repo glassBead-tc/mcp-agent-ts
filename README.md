@@ -82,7 +82,7 @@ app = MCPApp(name="hello_world_agent")
 
 async def example_usage():
     async with app.run() as mcp_agent_app:
-        logger = agent_app.logger
+        logger = mcp_agent_app.logger
         # This agent can read the filesystem or fetch URLs
         finder_agent = Agent(
             name="finder",
@@ -115,7 +115,7 @@ async def example_usage():
             result = await llm.generate_str("Summarize that in a 128-char tweet")
             logger.info(f"Tweet: {result}")
 
-if __name__ == "main":
+if __name__ == "__main__":
     asyncio.run(example_usage())
 
 ```
@@ -128,8 +128,14 @@ if __name__ == "main":
 ```yaml
 execution_engine: asyncio
 logger:
-  type: console
+  transports: [console]  # You can use [file, console] for both
   level: debug
+  path: "logs/mcp-agent.jsonl"  # Used for file transport
+  # For dynamic log filenames:
+  # path_settings:
+  #   path_pattern: "logs/mcp-agent-{unique_id}.jsonl"
+  #   unique_id: "timestamp"  # Or "session_id"
+  #   timestamp_format: "%Y%m%d_%H%M%S"
 
 mcp:
   servers:
@@ -488,7 +494,7 @@ The mcp-agent Swarm pattern works seamlessly with MCP servers, and is exposed as
 
 > [!NOTE]
 >
-> **[Link to full example](examples/workflow_orchestrator_worker/main.py)**
+> **[Link to full example](examples/workflow_swarm/main.py)**
 
 <details>
 <summary>Example</summary>
@@ -578,11 +584,11 @@ lost_baggage = SwarmAgent(
 
 </details>
 
-## App Config
+### App Config
 
-Create an [`mcp_agent.config.yaml`](/schema/mcp-agent.config.schema.json) and a gitignored [`mcp_agent.secrets.yaml`](./examples/mcp_basic_agent/mcp_agent.secrets.yaml.example) to define MCP app configuration. This controls logging, execution, LLM provider APIs, and MCP server configuration:
+Create an [`mcp_agent.config.yaml`](/schema/mcp-agent.config.schema.json) and a gitignored [`mcp_agent.secrets.yaml`](./examples/mcp_basic_agent/mcp_agent.secrets.yaml.example) to define MCP app configuration. This controls logging, execution, LLM provider APIs, and MCP server configuration.
 
-## MCP server management
+### MCP server management
 
 mcp-agent makes it trivial to connect to MCP servers. Create an [`mcp_agent.config.yaml`](/schema/mcp-agent.config.schema.json) to define server configuration under the `mcp` section:
 
@@ -595,7 +601,7 @@ mcp:
       description: "Fetch content at URLs from the world wide web"
 ```
 
-### [`gen_client`](src/mcp_agent/mcp/gen_client.py)
+#### [`gen_client`](src/mcp_agent/mcp/gen_client.py)
 
 Manage the lifecycle of an MCP server within an async context manager:
 
@@ -611,7 +617,7 @@ async with gen_client("fetch") as fetch_client:
 
 The gen_client function makes it easy to spin up connections to MCP servers.
 
-### Persistent server connections
+#### Persistent server connections
 
 In many cases, you want an MCP server to stay online for persistent use (e.g. in a multi-step tool use workflow).
 For persistent connections, use:
@@ -634,6 +640,7 @@ finally:
 
 <details>
 <summary>Example</summary>
+
 ```python
 from mcp_agent.context import get_current_context
 from mcp_agent.mcp.mcp_connection_manager import MCPConnectionManager
@@ -647,12 +654,11 @@ result = fetch_client.list_tool()
 fetch_client2 = await connection_manager.get_server("fetch") # Reuses same server connection
 
 # All servers managed by connection manager are automatically disconnected/shut down
-
-````
+```
 
 </details>
 
-### MCP Server Aggregator
+#### MCP Server Aggregator
 
 [`MCPAggregator`](src/mcp_agent/mcp/mcp_aggregator.py) acts as a "server-of-servers".
 It provides a single MCP server interface for interacting with multiple MCP servers.
@@ -687,6 +693,7 @@ We welcome any and all kinds of contributions. Please see the [CONTRIBUTING guid
 
 There have already been incredible community contributors who are driving this project forward:
 
+- [Shaun Smith (@evalstate)](https://github.com/evalstate) -- who has been leading the charge on countless complex improvements, both to `mcp-agent` and generally to the MCP ecosystem.
 - [Jerron Lim (@StreetLamb)](https://github.com/StreetLamb) -- who has contributed countless hours and excellent examples, and great ideas to the project.
 - [Jason Summer (@jasonsum)](https://github.com/jasonsum) -- for identifying several issues and adapting his Gmail MCP server to work with mcp-agent
 

@@ -86,7 +86,7 @@ class SwarmAgent(Agent):
         instruction: str | Callable[[Dict], str] = "You are a helpful agent.",
         server_names: list[str] = None,
         functions: List["AgentFunctionCallable"] = None,
-        parallel_tool_calls: bool = True,
+        parallel_tool_calls: bool = False,
         human_input_callback: HumanInputCallback = None,
         context: Optional["Context"] = None,
         **kwargs,
@@ -260,7 +260,7 @@ class Swarm(AugmentedLLM[MessageParamT, MessageT], Generic[MessageParamT, Messag
                 self.context_variables.update(content.context_variables)
                 if content.agent:
                     # Set the new agent as the current agent
-                    self.set_agent(content.agent)
+                    await self.set_agent(content.agent)
 
                 contents.append(TextContent(type="text", text=content.resource.text))
             else:

@@ -16,7 +16,11 @@ from typing import Any, Dict
 from contextlib import asynccontextmanager, contextmanager
 
 from mcp_agent.logging.events import Event, EventContext, EventFilter, EventType
-from mcp_agent.logging.listeners import BatchingListener, LoggingListener
+from mcp_agent.logging.listeners import (
+    BatchingListener,
+    LoggingListener,
+    ProgressListener,
+)
 from mcp_agent.logging.transport import AsyncEventBus, EventTransport
 
 
@@ -27,8 +31,9 @@ class Logger:
     - `name` can be a custom domain-specific event name, e.g. "ORDER_PLACED".
     """
 
-    def __init__(self, namespace: str):
+    def __init__(self, namespace: str, session_id: str | None = None):
         self.namespace = namespace
+        self.session_id = session_id
         self.event_bus = AsyncEventBus.get()
 
     def _ensure_event_loop(self):
@@ -60,6 +65,15 @@ class Logger:
         data: dict,
     ):
         """Create and emit an event."""
+        # Only create or modify context with session_id if we have one
+        if self.session_id:
+            # If no context was provided, create one with our session_id
+            if context is None:
+                context = EventContext(session_id=self.session_id)
+            # If context exists but has no session_id, add our session_id
+            elif context.session_id is None:
+                context.session_id = self.session_id
+
         evt = Event(
             type=etype,
             name=ename,
@@ -210,6 +224,10 @@ class LoggingConfig:
         if "logging" not in bus.listeners:
             bus.add_listener("logging", LoggingListener(event_filter=event_filter))
 
+        # Only add progress listener if enabled in settings
+        if "progress" not in bus.listeners and kwargs.get("progress_display", True):
+            bus.add_listener("progress", ProgressListener())
+
         if "batching" not in bus.listeners:
             bus.add_listener(
                 "batching",
@@ -247,111 +265,21 @@ _logger_lock = threading.Lock()
 _loggers: Dict[str, Logger] = {}
 
 
-def get_logger(namespace: str) -> Logger:
+def get_logger(namespace: str, session_id: str | None = None) -> Logger:
     """
     Get a logger instance for a given namespace.
     Creates a new logger if one doesn't exist for this namespace.
 
     Args:
         namespace: The namespace for the logger (e.g. "agent.helper", "workflow.demo")
+        session_id: Optional session ID to associate with all events from this logger
 
     Returns:
         A Logger instance for the given namespace
     """
 
     with _logger_lock:
+        # Create a new logger if one doesn't exist
         if namespace not in _loggers:
-            _loggers[namespace] = Logger(namespace)
+            _loggers[namespace] = Logger(namespace, session_id)
         return _loggers[namespace]
-
-
-##########
-# Example
-##########
-
-
-# class Agent:
-#     """Shows how to combine Logger with OTel's @telemetry.traced decorator."""
-
-#     def __init__(self, name: str):
-#         self.logger = Logger(f"agent.{name}")
-
-#     @telemetry.traced("agent.call_tool", kind=SpanKind.CLIENT)
-#     async def call_tool(self, tool_name: str, **kwargs):
-#         await self.logger.info(
-#             f"Calling tool '{tool_name}'", name="TOOL_CALL_START", **kwargs
-#         )
-#         await asyncio.sleep(random.uniform(0.1, 0.3))
-#         # Possibly do real logic here
-#         await self.logger.debug(
-#             f"Completed tool call '{tool_name}'", name="TOOL_CALL_END"
-#         )
-
-
-# class Workflow:
-#     """Example workflow that logs multiple steps, also with optional tracing."""
-
-#     def __init__(self, name: str, steps: List[str]):
-#         self.logger = Logger(f"workflow.{name}")
-#         self.steps = steps
-
-#     @telemetry.traced("workflow.run", kind=SpanKind.INTERNAL)
-#     async def run(self):
-#         await self.logger.info(
-#             "Workflow started", name="WORKFLOW_START", steps=len(self.steps)
-#         )
-#         for i, step_name in enumerate(self.steps, start=1):
-#             pct = round((i / len(self.steps)) * 100, 2)
-#             await self.logger.progress(
-#                 f"Executing {step_name}", name="WORKFLOW_STEP", percentage=pct
-#             )
-#             await asyncio.sleep(random.uniform(0.1, 0.3))
-#             await self.logger.milestone(
-#                 f"Completed {step_name}", name="WORKFLOW_MILESTONE", step_index=i
-#             )
-#         await self.logger.status("Workflow complete", name="WORKFLOW_DONE")
-
-
-# ###############################################################################
-# # 10) Demo Main
-# ###############################################################################
-
-
-# async def main():
-#     # 1) Configure Python logging
-#     logging.basicConfig(level=logging.INFO)
-
-#     # 2) Get the event bus and add local listeners
-#     bus = AsyncEventBus.get()
-#     bus.add_listener("logging", LoggingListener())
-#     bus.add_listener("batching", BatchingListener(batch_size=3, flush_interval=2.0))
-
-#     # 3) Optionally set up distributed transport
-#     # configure_distributed("https://my-remote-logger.example.com")
-
-#     # 4) Start the event bus
-#     await bus.start()
-
-#     # 5) Run example tasks
-#     agent = Agent("assistant")
-#     workflow = Workflow("demo_flow", ["init", "process", "cleanup"])
-
-#     agent_task = asyncio.create_task(agent.call_tool("my-tool", foo="bar"))
-#     workflow_task = asyncio.create_task(workflow.run())
-
-#     # Also demonstrate timed context manager
-#     logger = Logger("misc")
-#     with event_context(
-#         logger, "SynchronousBlock", event_type="info", name="SYNCHRONOUS_BLOCK"
-#     ):
-#         time.sleep(0.5)  # do a blocking operation
-
-#     # Wait for tasks
-#     await asyncio.gather(agent_task, workflow_task)
-
-#     # 6) Stop the bus (flush & close)
-#     await bus.stop()
-
-
-# if __name__ == "__main__":
-#     asyncio.run(main())

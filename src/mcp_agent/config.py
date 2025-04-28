@@ -4,9 +4,9 @@ for the application configuration.
 """
 
 from pathlib import Path
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +14,29 @@ class MCPServerAuthSettings(BaseModel):
     """Represents authentication configuration for a server."""
 
     api_key: str | None = None
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+
+
+class MCPRootSettings(BaseModel):
+    """Represents a root directory configuration for an MCP server."""
+
+    uri: str
+    """The URI identifying the root. Must start with file://"""
+
+    name: Optional[str] = None
+    """Optional name for the root."""
+
+    server_uri_alias: Optional[str] = None
+    """Optional URI alias for presentation to the server"""
+
+    @field_validator("uri", "server_uri_alias")
+    @classmethod
+    def validate_uri(cls, v: str) -> str:
+        """Validate that the URI starts with file:// (required by specification 2024-11-05)"""
+        if not v.startswith("file://"):
+            raise ValueError("Root URI must start with file://")
+        return v
 
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
 
@@ -31,7 +54,7 @@ class MCPServerSettings(BaseModel):
     description: str | None = None
     """The description of the server."""
 
-    transport: Literal["stdio", "sse"] = "stdio"
+    transport: Literal["stdio", "sse", "websocket"] = "stdio"
     """The transport mechanism."""
 
     command: str | None = None
@@ -48,6 +71,12 @@ class MCPServerSettings(BaseModel):
 
     auth: MCPServerAuthSettings | None = None
     """The authentication configuration for the server."""
+
+    headers: Dict[str, str] | None = None
+    """HTTP headers for sse or websocket requests."""
+
+    roots: Optional[List[MCPRootSettings]] = None
+    """Root directories this server has access to."""
 
     env: Dict[str, str] | None = None
     """Environment variables to pass to the server process."""
@@ -70,6 +99,20 @@ class AnthropicSettings(BaseModel):
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
 
 
+class BedrockSettings(BaseModel):
+    """
+    Settings for using Bedrock models in the MCP Agent application.
+    """
+
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
+    aws_region: str | None = None
+    profile: str | None = None
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+
+
 class CohereSettings(BaseModel):
     """
     Settings for using Cohere models in the MCP Agent application.
@@ -86,8 +129,38 @@ class OpenAISettings(BaseModel):
     """
 
     api_key: str | None = None
+    reasoning_effort: Literal["low", "medium", "high"] = "medium"
 
     base_url: str | None = None
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+
+
+class AzureSettings(BaseModel):
+    """
+    Settings for using Azure models in the MCP Agent application.
+    """
+
+    api_key: str
+
+    endpoint: str
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+
+
+class GoogleSettings(BaseModel):
+    """
+    Settings for using Google models in the MCP Agent application.
+    """
+
+    api_key: str | None = None
+    """Or use the GOOGLE_API_KEY environment variable"""
+
+    vertexai: bool = False
+
+    project: str | None = None
+
+    location: str | None = None
 
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
 
@@ -137,18 +210,57 @@ class OpenTelemetrySettings(BaseModel):
     """Sample rate for tracing (1.0 = sample everything)"""
 
 
+class LogPathSettings(BaseModel):
+    """
+    Settings for configuring log file paths with dynamic elements like timestamps or session IDs.
+    """
+
+    path_pattern: str = "logs/mcp-agent-{unique_id}.jsonl"
+    """
+    Path pattern for log files with a {unique_id} placeholder.
+    The placeholder will be replaced according to the unique_id setting.
+    Example: "logs/mcp-agent-{unique_id}.jsonl"
+    """
+
+    unique_id: Literal["timestamp", "session_id"] = "timestamp"
+    """
+    Type of unique identifier to use in the log filename:
+    - timestamp: Uses the current time formatted according to timestamp_format
+    - session_id: Generates a UUID for the session
+    """
+
+    timestamp_format: str = "%Y%m%d_%H%M%S"
+    """
+    Format string for timestamps when unique_id is set to "timestamp".
+    Uses Python's datetime.strftime format.
+    """
+
+
 class LoggerSettings(BaseModel):
     """
     Logger settings for the MCP Agent application.
     """
 
+    # Original transport configuration (kept for backward compatibility)
     type: Literal["none", "console", "file", "http"] = "console"
+
+    transports: List[Literal["none", "console", "file", "http"]] = []
+    """List of transports to use (can enable multiple simultaneously)"""
 
     level: Literal["debug", "info", "warning", "error"] = "info"
     """Minimum logging level"""
 
-    path: str = "mcp-agent.log"
+    progress_display: bool = False
+    """Enable or disable the progress display"""
+
+    path: str = "mcp-agent.jsonl"
     """Path to log file, if logger 'type' is 'file'."""
+
+    # Settings for advanced log path configuration
+    path_settings: LogPathSettings | None = None
+    """
+    Save log files with more advanced path semantics, like having timestamps or session id in the log name.
+    """
 
     batch_size: int = 100
     """Number of events to accumulate before processing"""
@@ -195,11 +307,20 @@ class Settings(BaseSettings):
     anthropic: AnthropicSettings | None = None
     """Settings for using Anthropic models in the MCP Agent application"""
 
+    bedrock: BedrockSettings | None = None
+    """Settings for using Bedrock models in the MCP Agent application"""
+
     cohere: CohereSettings | None = None
     """Settings for using Cohere models in the MCP Agent application"""
 
     openai: OpenAISettings | None = None
     """Settings for using OpenAI models in the MCP Agent application"""
+
+    azure: AzureSettings | None = None
+    """Settings for using Azure models in the MCP Agent application"""
+
+    google: GoogleSettings | None = None
+    """Settings for using Google models in the MCP Agent application"""
 
     otel: OpenTelemetrySettings | None = OpenTelemetrySettings()
     """OpenTelemetry logging settings for the MCP Agent application"""
@@ -213,11 +334,21 @@ class Settings(BaseSettings):
     @classmethod
     def find_config(cls) -> Path | None:
         """Find the config file in the current directory or parent directories."""
+        return cls._find_config(["mcp-agent.config.yaml", "mcp_agent.config.yaml"])
+
+    @classmethod
+    def find_secrets(cls) -> Path | None:
+        """Find the secrets file in the current directory or parent directories."""
+        return cls._find_config(["mcp-agent.secrets.yaml", "mcp_agent.secrets.yaml"])
+
+    @classmethod
+    def _find_config(cls, filenames: List[str]) -> Path | None:
+        """Find the config file of one of the possible names in the current directory or parent directories."""
         current_dir = Path.cwd()
 
         # Check current directory and parent directories
         while current_dir != current_dir.parent:
-            for filename in ["mcp-agent.config.yaml", "mcp_agent.config.yaml"]:
+            for filename in filenames:
                 config_path = current_dir / filename
                 if config_path.exists():
                     return config_path
@@ -251,31 +382,47 @@ def get_settings(config_path: str | None = None) -> Settings:
     if _settings:
         return _settings
 
-    config_file = config_path or Settings.find_config()
+    import yaml  # pylint: disable=C0415
+
     merged_settings = {}
 
-    if config_file:
+    # Determine the config file to use
+    if config_path:
+        config_file = Path(config_path)
         if not config_file.exists():
-            pass
-        else:
-            import yaml  # pylint: disable=C0415
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+    else:
+        config_file = Settings.find_config()
 
-            # Load main config
-            with open(config_file, "r", encoding="utf-8") as f:
-                yaml_settings = yaml.safe_load(f) or {}
-                merged_settings = yaml_settings
+    # If we found a config file, load it
+    if config_file and config_file.exists():
+        with open(config_file, "r", encoding="utf-8") as f:
+            yaml_settings = yaml.safe_load(f) or {}
+            merged_settings = yaml_settings
 
-            # Look for secrets file in the same directory
-            secrets_file = config_file.parent / "mcp_agent.secrets.yaml"
+        # Try to find secrets in the same directory as the config file
+        config_dir = config_file.parent
+        secrets_found = False
+        for secrets_filename in ["mcp-agent.secrets.yaml", "mcp_agent.secrets.yaml"]:
+            secrets_file = config_dir / secrets_filename
             if secrets_file.exists():
                 with open(secrets_file, "r", encoding="utf-8") as f:
                     yaml_secrets = yaml.safe_load(f) or {}
                     merged_settings = deep_merge(merged_settings, yaml_secrets)
+                secrets_found = True
+                break
 
-            _settings = Settings(**merged_settings)
-            return _settings
-    else:
-        pass
+        # If no secrets were found in the config directory, fall back to discovery
+        if not secrets_found:
+            secrets_file = Settings.find_secrets()
+            if secrets_file and secrets_file.exists():
+                with open(secrets_file, "r", encoding="utf-8") as f:
+                    yaml_secrets = yaml.safe_load(f) or {}
+                    merged_settings = deep_merge(merged_settings, yaml_secrets)
 
+        _settings = Settings(**merged_settings)
+        return _settings
+
+    # No valid config found anywhere
     _settings = Settings()
     return _settings

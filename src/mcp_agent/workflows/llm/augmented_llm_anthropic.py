@@ -1,9 +1,8 @@
 import json
-from typing import Iterable, List, Type
+from typing import Iterable, List, Type, Union
 
 from pydantic import BaseModel
 
-import instructor
 from anthropic import Anthropic
 from anthropic.types import (
     ContentBlock,
@@ -16,6 +15,11 @@ from anthropic.types import (
     ToolParam,
     ToolResultBlockParam,
     ToolUseBlockParam,
+    Base64ImageSourceParam,
+    PlainTextSourceParam,
+    Base64PDFSourceParam,
+    ThinkingBlockParam,
+    RedactedThinkingBlockParam,
 )
 from mcp.types import (
     CallToolRequestParams,
@@ -28,6 +32,8 @@ from mcp.types import (
     TextResourceContents,
 )
 
+# from mcp_agent import console
+# from mcp_agent.agents.agent import HUMAN_INPUT_TOOL_NAME
 from mcp_agent.workflows.llm.augmented_llm import (
     AugmentedLLM,
     ModelT,
@@ -35,10 +41,25 @@ from mcp_agent.workflows.llm.augmented_llm import (
     MCPMessageResult,
     ProviderToMCPConverter,
     RequestParams,
+    CallToolResult,
 )
 from mcp_agent.logging.logger import get_logger
 
-logger = get_logger(__name__)
+MessageParamContent = Union[
+    str,
+    Iterable[
+        Union[
+            TextBlockParam,
+            ImageBlockParam,
+            ToolUseBlockParam,
+            ToolResultBlockParam,
+            DocumentBlockParam,
+            ThinkingBlockParam,
+            RedactedThinkingBlockParam,
+            ContentBlock,
+        ]
+    ],
+]
 
 
 class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
@@ -57,18 +78,26 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         )
 
         self.provider = "Anthropic"
+        # Initialize logger with name if available
+        self.logger = get_logger(f"{__name__}.{self.name}" if self.name else __name__)
 
         self.model_preferences = self.model_preferences or ModelPreferences(
             costPriority=0.3,
             speedPriority=0.4,
             intelligencePriority=0.3,
         )
+
+        default_model = "claude-3-7-sonnet-latest"  # Fallback default
+
+        if self.context.config.anthropic:
+            if hasattr(self.context.config.anthropic, "default_model"):
+                default_model = self.context.config.anthropic.default_model
         self.default_request_params = self.default_request_params or RequestParams(
-            model="claude-3-5-sonnet-20241022",
+            model=default_model,
             modelPreferences=self.model_preferences,
             maxTokens=2048,
             systemPrompt=self.instruction,
-            parallel_tool_calls=True,
+            parallel_tool_calls=False,
             max_iterations=10,
             use_history=True,
         )
@@ -112,6 +141,16 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         model = await self.select_model(params)
 
         for i in range(params.max_iterations):
+            if i == params.max_iterations - 1 and response.stop_reason == "tool_use":
+                final_prompt_message = MessageParam(
+                    role="user",
+                    content="""We've reached the maximum number of iterations. 
+                    Please stop using tools now and provide your final comprehensive answer based on all tool results so far. 
+                    At the beginning of your response, clearly indicate that your answer may be incomplete due to reaching the maximum number of tool usage iterations, 
+                    and explain what additional information you would have needed to provide a more complete answer.""",
+                )
+                messages.append(final_prompt_message)
+
             arguments = {
                 "model": model,
                 "max_tokens": params.maxTokens,
@@ -124,10 +163,8 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             if params.metadata:
                 arguments = {**arguments, **params.metadata}
 
-            logger.debug(
-                f"Iteration {i}: Calling {model} with messages:",
-                data=messages,
-            )
+            self.logger.debug(f"{arguments}")
+            self._log_chat_progress(chat_turn=(len(messages) + 1) // 2, model=model)
 
             executor_result = await self.executor.execute(
                 anthropic.messages.create, **arguments
@@ -136,11 +173,11 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             response = executor_result[0]
 
             if isinstance(response, BaseException):
-                logger.error(f"Error: {executor_result}")
+                self.logger.error(f"Error: {executor_result}")
                 break
 
-            logger.debug(
-                f"Iteration {i}: {model} response:",
+            self.logger.debug(
+                f"{model} response:",
                 data=response,
             )
 
@@ -149,19 +186,19 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
             responses.append(response)
 
             if response.stop_reason == "end_turn":
-                logger.debug(
+                self.logger.debug(
                     f"Iteration {i}: Stopping because finish_reason is 'end_turn'"
                 )
                 break
             elif response.stop_reason == "stop_sequence":
                 # We have reached a stop sequence
-                logger.debug(
+                self.logger.debug(
                     f"Iteration {i}: Stopping because finish_reason is 'stop_sequence'"
                 )
                 break
             elif response.stop_reason == "max_tokens":
                 # We have reached the max tokens limit
-                logger.debug(
+                self.logger.debug(
                     f"Iteration {i}: Stopping because finish_reason is 'max_tokens'"
                 )
                 # TODO: saqadri - would be useful to return the reason for stopping to the caller
@@ -172,6 +209,28 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
                         tool_name = content.name
                         tool_args = content.input
                         tool_use_id = content.id
+
+                        # TODO -- productionize this
+                        # if tool_name == HUMAN_INPUT_TOOL_NAME:
+                        #     # Get the message from the content list
+                        #     message_text = ""
+                        #     for block in response_as_message["content"]:
+                        #         if (
+                        #             isinstance(block, dict)
+                        #             and block.get("type") == "text"
+                        #         ):
+                        #             message_text += block.get("text", "")
+                        #         elif hasattr(block, "type") and block.type == "text":
+                        #             message_text += block.text
+
+                        # panel = Panel(
+                        #     message_text,
+                        #     title="MESSAGE",
+                        #     style="green",
+                        #     border_style="bold white",
+                        #     padding=(1, 2),
+                        # )
+                        # console.console.print(panel)
 
                         tool_call_request = CallToolRequest(
                             method="tools/call",
@@ -184,24 +243,14 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
                             request=tool_call_request, tool_call_id=tool_use_id
                         )
 
-                        messages.append(
-                            MessageParam(
-                                role="user",
-                                content=[
-                                    ToolResultBlockParam(
-                                        type="tool_result",
-                                        tool_use_id=tool_use_id,
-                                        content=result.content,
-                                        is_error=result.isError,
-                                    )
-                                ],
-                            )
-                        )
+                        message = self.from_mcp_tool_result(result, tool_use_id)
+
+                        messages.append(message)
 
         if params.use_history:
             self.history.set(messages)
 
-        logger.debug("Final response:", data=responses)
+        self._log_chat_finished(model=model)
 
         return responses
 
@@ -243,6 +292,8 @@ class AnthropicAugmentedLLM(AugmentedLLM[MessageParam, Message]):
         # We need to do this in a two-step process because Instructor doesn't
         # know how to invoke MCP tools via call_tool, so we'll handle all the
         # processing first and then pass the final response through Instructor
+        import instructor
+
         response = await self.generate_str(
             message=message,
             request_params=request_params,
@@ -377,7 +428,9 @@ class AnthropicMCPTypeConverter(ProviderToMCPConverter[MessageParam, Message]):
         extras = param.model_dump(exclude={"role", "content"})
         return MessageParam(
             role=param.role,
-            content=[mcp_content_to_anthropic_content(param.content)],
+            content=[
+                mcp_content_to_anthropic_content(param.content, for_message_param=True)
+            ],
             **extras,
         )
 
@@ -403,25 +456,111 @@ class AnthropicMCPTypeConverter(ProviderToMCPConverter[MessageParam, Message]):
             **typed_dict_extras(param, ["role", "content"]),
         )
 
+    @classmethod
+    def from_mcp_tool_result(
+        cls, result: CallToolResult, tool_use_id: str
+    ) -> MessageParam:
+        """Convert mcp tool result to user MessageParam"""
+        tool_result_block_content: list[TextBlockParam | ImageBlockParam] = []
+
+        for content in result.content:
+            converted_content = mcp_content_to_anthropic_content(
+                content, for_message_param=True
+            )
+            if converted_content["type"] in ["text", "image"]:
+                tool_result_block_content.append(converted_content)
+
+        if not tool_result_block_content:
+            # If no valid content, return as error
+            tool_result_block_content = [
+                TextBlockParam(type="text", text="No result returned")
+            ]
+            result.isError = True
+
+        return MessageParam(
+            role="user",
+            content=[
+                ToolResultBlockParam(
+                    type="tool_result",
+                    tool_use_id=tool_use_id,
+                    content=tool_result_block_content,
+                    is_error=result.isError,
+                )
+            ],
+        )
+
 
 def mcp_content_to_anthropic_content(
     content: TextContent | ImageContent | EmbeddedResource,
-) -> ContentBlock:
-    if isinstance(content, TextContent):
-        return TextBlock(type=content.type, text=content.text)
-    elif isinstance(content, ImageContent):
-        # Best effort to convert an image to text (since there's no ImageBlock)
-        return TextBlock(type="text", text=f"{content.mimeType}:{content.data}")
-    elif isinstance(content, EmbeddedResource):
-        if isinstance(content.resource, TextResourceContents):
-            return TextBlock(type="text", text=content.resource.text)
-        else:  # BlobResourceContents
-            return TextBlock(
-                type="text", text=f"{content.resource.mimeType}:{content.resource.blob}"
+    for_message_param: bool = False,
+) -> ContentBlock | MessageParamContent:
+    """
+    Converts MCP content types into Anthropic-compatible content blocks.
+
+    Args:
+        content (TextContent | ImageContent | EmbeddedResource): The MCP content to convert.
+        for_message_param (bool, optional): If True, returns Anthropic message param content types.
+                                    If False, returns Anthropic response message content types.
+                                    Defaults to False.
+
+    Returns:
+        ContentBlock: The converted content block in Anthropic format.
+    """
+    if for_message_param:
+        if isinstance(content, TextContent):
+            return TextBlockParam(type="text", text=content.text)
+        elif isinstance(content, ImageContent):
+            return ImageBlockParam(
+                type="image",
+                source=Base64ImageSourceParam(
+                    type="base64",
+                    data=content.data,
+                    media_type=content.mimeType,
+                ),
             )
+        elif isinstance(content, EmbeddedResource):
+            if isinstance(content.resource, TextResourceContents):
+                return TextBlockParam(type="text", text=content.resource.text)
+            else:
+                if content.resource.mimeType == "text/plain":
+                    source = PlainTextSourceParam(
+                        type="text",
+                        data=content.resource.blob,
+                        mimeType=content.resource.mimeType,
+                    )
+                elif content.resource.mimeType == "application/pdf":
+                    source = Base64PDFSourceParam(
+                        type="base64",
+                        data=content.resource.blob,
+                        mimeType=content.resource.mimeType,
+                    )
+                else:
+                    # Best effort to convert
+                    return TextBlockParam(
+                        type="text",
+                        text=f"{content.resource.mimeType}:{content.resource.blob}",
+                    )
+                return DocumentBlockParam(
+                    type="document",
+                    source=source,
+                )
     else:
-        # Last effort to convert the content to a string
-        return TextBlock(type="text", text=str(content))
+        if isinstance(content, TextContent):
+            return TextBlock(type=content.type, text=content.text)
+        elif isinstance(content, ImageContent):
+            # Best effort to convert an image to text (since there's no ImageBlock)
+            return TextBlock(type="text", text=f"{content.mimeType}:{content.data}")
+        elif isinstance(content, EmbeddedResource):
+            if isinstance(content.resource, TextResourceContents):
+                return TextBlock(type="text", text=content.resource.text)
+            else:  # BlobResourceContents
+                return TextBlock(
+                    type="text",
+                    text=f"{content.resource.mimeType}:{content.resource.blob}",
+                )
+        else:
+            # Last effort to convert the content to a string
+            return TextBlock(type="text", text=str(content))
 
 
 def anthropic_content_to_mcp_content(

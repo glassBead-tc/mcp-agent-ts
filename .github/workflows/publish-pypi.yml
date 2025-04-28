@@ -5,6 +5,8 @@ on:
     tags:
       - "v*" # Triggers on tags like v1.2.3
 
+  workflow_dispatch: # Enables manual runs
+
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml

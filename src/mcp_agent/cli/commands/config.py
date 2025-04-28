@@ -6,4 +6,6 @@ app = typer.Typer()
 @app.command()
 def show():
     """Show the configuration."""
-    print("NotImplemented")
+    raise NotImplementedError(
+        "The show configuration command has not been implemented yet"
+    )

@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from mcp_agent.app import MCPApp
 from mcp_agent.agents.agent import Agent
@@ -10,6 +11,8 @@ app = MCPApp(name="mcp_basic_agent")
 async def example_usage():
     async with app.run() as agent_app:
         logger = agent_app.logger
+        context = agent_app.context
+
         slack_agent = Agent(
             name="slack_finder",
             instruction="""You are an agent with access to the filesystem, 
@@ -18,6 +21,8 @@ async def example_usage():
             and return the results.""",
             server_names=["filesystem", "slack"],
         )
+
+        context.config.mcp.servers["filesystem"].args.extend([os.getcwd()])
 
         async with slack_agent:
             logger.info("slack: Connected to server, calling list_tools...")

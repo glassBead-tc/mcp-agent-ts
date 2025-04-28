@@ -4,7 +4,7 @@ A central context object to store global state that is shared across the applica
 
 import asyncio
 import concurrent.futures
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, Union, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
@@ -60,6 +60,7 @@ class Context(BaseModel):
     signal_notification: Optional[SignalWaitCallback] = None
     upstream_session: Optional[ServerSession] = None  # TODO: saqadri - figure this out
     model_selector: Optional[ModelSelector] = None
+    session_id: str | None = None
 
     # Registries
     server_registry: Optional[ServerRegistry] = None
@@ -79,6 +80,10 @@ async def configure_otel(config: "Settings"):
     Configure OpenTelemetry based on the application config.
     """
     if not config.otel.enabled:
+        return
+
+    # Check if a provider is already set to avoid re-initialization
+    if trace.get_tracer_provider().__class__.__name__ != "NoOpTracerProvider":
         return
 
     # Set up global textmap propagator first
@@ -122,18 +127,21 @@ async def configure_otel(config: "Settings"):
     trace.set_tracer_provider(tracer_provider)
 
 
-async def configure_logger(config: "Settings"):
+async def configure_logger(config: "Settings", session_id: str | None = None):
     """
     Configure logging and tracing based on the application config.
     """
     event_filter: EventFilter = EventFilter(min_level=config.logger.level)
     logger.info(f"Configuring logger with level: {config.logger.level}")
-    transport = create_transport(settings=config.logger, event_filter=event_filter)
+    transport = create_transport(
+        settings=config.logger, event_filter=event_filter, session_id=session_id
+    )
     await LoggingConfig.configure(
         event_filter=event_filter,
         transport=transport,
         batch_size=config.logger.batch_size,
         flush_interval=config.logger.flush_interval,
+        progress_display=config.logger.progress_display,
     )
 
 
@@ -164,21 +172,27 @@ async def configure_executor(config: "Settings"):
 
 
 async def initialize_context(
-    config: Optional["Settings"] = None, store_globally: bool = False
+    config: Optional[Union["Settings", str]] = None,
+    store_globally: bool = False,
+    session_id: str = None,
 ):
     """
     Initialize the global application context.
     """
     if config is None:
         config = get_settings()
+    elif isinstance(config, str):
+        config = get_settings(config_path=config)
 
     context = Context()
     context.config = config
     context.server_registry = ServerRegistry(config=config)
 
+    context.session_id = session_id
+
     # Configure logging and telemetry
     await configure_otel(config)
-    await configure_logger(config)
+    await configure_logger(config, context.session_id)
     await configure_usage_telemetry(config)
 
     # Configure the executor

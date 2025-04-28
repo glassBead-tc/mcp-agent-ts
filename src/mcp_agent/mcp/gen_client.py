@@ -82,4 +82,4 @@ async def disconnect(
             server_name=server_name
         )
     else:
-        await server_registry.connection_manager.disconnect_all_servers()
+        await server_registry.connection_manager.disconnect_all()

@@ -10,22 +10,20 @@ logger:
   http_endpoint:
   http_headers:
   http_timeout: 5
+  progress_display: false
 
 mcp:
   servers:
     qdrant:
       command: "uvx"
-      args:
-        [
-          "mcp-server-qdrant",
-          "--qdrant-url",
-          "http://localhost:6333",
-          "--collection-name",
-          "my_collection",
-          "--fastembed-model-name",
-          "BAAI/bge-small-en-v1.5",
-        ]
+      args: ["mcp-server-qdrant"]
+      env:
+        {
+          "QDRANT_URL": "http://localhost:6333",
+          "COLLECTION_NAME": "my_collection",
+          "EMBEDDING_MODEL": "BAAI/bge-small-en-v1.5",
+        }
 
 openai:
   # Secrets (API keys, etc.) are stored in an mcp_agent.secrets.yaml file which can be gitignored
-  default_model: gpt-4o
+  default_model: gpt-4o-mini
