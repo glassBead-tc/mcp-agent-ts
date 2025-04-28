@@ -1,9 +1,9 @@
 /**
  * Transport system for logging
  */
-import fs from 'fs';
-import { LoggerConfig } from '../config.js';
-import { Event, EventFilter } from './events.js';
+import fs from "fs";
+import { LoggerConfig } from "../config/index.js";
+import { Event, EventFilter } from "./events.js";
 
 /**
  * Transport interface for handling log events
@@ -32,17 +32,17 @@ export class ConsoleTransport implements Transport {
     };
 
     switch (event.level) {
-      case 'debug':
+      case "debug":
         console.debug(formattedEvent);
         break;
-      case 'info':
+      case "info":
         console.info(formattedEvent);
         break;
-      case 'warning':
+      case "warning":
         console.warn(formattedEvent);
         break;
-      case 'error':
-      case 'critical':
+      case "error":
+      case "critical":
         console.error(formattedEvent);
         break;
     }
@@ -67,8 +67,8 @@ export class FileTransport implements Transport {
     private batchSize: number = 100,
     private flushIntervalMs: number = 5000
   ) {
-    this.writeStream = fs.createWriteStream(filePath, { flags: 'a' });
-    
+    this.writeStream = fs.createWriteStream(filePath, { flags: "a" });
+
     // Set up periodic flush
     setInterval(() => {
       this.flush();
@@ -101,8 +101,9 @@ export class FileTransport implements Transport {
         return;
       }
 
-      const data = eventsToFlush.map(event => JSON.stringify(event)).join('\n') + '\n';
-      
+      const data =
+        eventsToFlush.map((event) => JSON.stringify(event)).join("\n") + "\n";
+
       this.writeStream.write(data, (err) => {
         this.flushPromise = null;
         if (err) {
@@ -118,7 +119,7 @@ export class FileTransport implements Transport {
 
   async close(): Promise<void> {
     await this.flush();
-    
+
     if (this.writeStream) {
       return new Promise<void>((resolve) => {
         if (this.writeStream) {
@@ -137,8 +138,11 @@ export class FileTransport implements Transport {
 /**
  * Create a transport based on logger settings
  */
-export function createTransport(settings: LoggerConfig, eventFilter: EventFilter): Transport {
-  if (settings.output === 'file' && settings.file_path) {
+export function createTransport(
+  settings: LoggerConfig,
+  eventFilter: EventFilter
+): Transport {
+  if (settings.output === "file" && settings.file_path) {
     return new FileTransport(
       settings.file_path,
       eventFilter,
@@ -146,7 +150,7 @@ export function createTransport(settings: LoggerConfig, eventFilter: EventFilter
       settings.flush_interval * 1000
     );
   }
-  
+
   // Default to console transport
   return new ConsoleTransport(eventFilter);
 }

@@ -178,3 +178,4 @@ project_contents.md
 examples/**/*.jsonl
 xnode_modules
 dist
+node_modules

@@ -310,7 +310,7 @@ export class Orchestrator extends AugmentedLLM {
           readySteps.push(step);
         } else {
           // Mark as blocked if not already
-          if (status.status !== StepStatus.BLOCKED) {
+          if (status.status === StepStatus.PENDING) {
             stepStatuses.set(step.id, {
               ...status,
               status: StepStatus.BLOCKED,

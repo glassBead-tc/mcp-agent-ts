@@ -1,11 +1,16 @@
 /**
  * Azure implementation of AugmentedLLM
  */
-import { AugmentedLLM, Message, CompletionOptions, CompletionResult } from './augmented_llm.js';
-import { Agent } from '../../agents/agent.js';
-import { getLogger } from '../../logging/logger.js';
+import {
+  AugmentedLLM,
+  Message,
+  CompletionOptions,
+  CompletionResult,
+} from "./augmented_llm.js";
+import { Agent } from "../../agents/agent.js";
+import { getLogger } from "../../logging/logger.js";
 
-const logger = getLogger('augmented_llm_azure');
+const logger = getLogger("augmented_llm_azure");
 
 /**
  * Represents a tool call from the Azure API
@@ -25,7 +30,7 @@ interface AzureToolCall {
 export class AzureAugmentedLLM extends AugmentedLLM {
   /**
    * Create a new Azure augmented LLM
-   * 
+   *
    * @param options - Azure augmented LLM options
    * @param options.agent - The agent to use
    * @param options.model - The model to use (defaults to 'gpt-4o-mini')
@@ -42,16 +47,16 @@ export class AzureAugmentedLLM extends AugmentedLLM {
   }) {
     super({
       agent: options.agent,
-      model: options.model || 'gpt-4o-mini',
+      model: options.model || "gpt-4o-mini",
       apiKey: options.apiKey,
       baseUrl: options.baseUrl,
       options: options.options,
     });
   }
-  
+
   /**
    * Complete a conversation
-   * 
+   *
    * @param messages - The messages to complete
    * @param options - Completion options
    * @returns The completion result
@@ -60,29 +65,29 @@ export class AzureAugmentedLLM extends AugmentedLLM {
     messages: Message[],
     options?: CompletionOptions
   ): Promise<CompletionResult> {
-    logger.debug('Completing conversation with Azure', { 
+    logger.debug("Completing conversation with Azure", {
       model: this.model,
       messageCount: messages.length,
     });
-    
+
     try {
       // In a real implementation, we would use the Azure AI SDK here
       // For now, we'll just return a mock response
-      
+
       // Get the last user message
-      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-      const userContent = lastUserMessage ? lastUserMessage.content : '';
-      
+      const lastUserMessage = messages.filter((m) => m.role === "user").pop();
+      const userContent = lastUserMessage ? lastUserMessage.content : "";
+
       return {
         id: `azure-${Date.now()}`,
         choices: [
           {
             index: 0,
             message: {
-              role: 'assistant',
+              role: "assistant",
               content: `This is a mock response from Azure (${this.model}) to: "${userContent}"`,
             },
-            finish_reason: 'stop',
+            finish_reason: "stop",
           },
         ],
         usage: {
@@ -92,14 +97,14 @@ export class AzureAugmentedLLM extends AugmentedLLM {
         },
       };
     } catch (error) {
-      logger.error('Error in Azure completion', { error });
+      logger.error("Error in Azure completion", { error });
       throw error;
     }
   }
-  
+
   /**
    * Complete a conversation with tool calling
-   * 
+   *
    * @param messages - The messages to complete
    * @param options - Completion options
    * @returns The completion result
@@ -108,30 +113,30 @@ export class AzureAugmentedLLM extends AugmentedLLM {
     messages: Message[],
     options?: CompletionOptions
   ): Promise<CompletionResult> {
-    logger.debug('Completing conversation with Azure (with tools)', { 
+    logger.debug("Completing conversation with Azure (with tools)", {
       model: this.model,
       messageCount: messages.length,
     });
-    
+
     try {
       // In a real implementation, we would use the Azure AI SDK here
       // For now, we'll just return a mock response with a tool call
-      
+
       // Get the last user message
-      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-      const userContent = lastUserMessage ? lastUserMessage.content : '';
-      
+      const lastUserMessage = messages.filter((m) => m.role === "user").pop();
+      const userContent = lastUserMessage ? lastUserMessage.content : "";
+
       // Check if tools are provided
       const tools = options?.tools || [];
-      
+
       if (tools.length === 0) {
         // No tools provided, just return a regular completion
         return this.complete(messages, options);
       }
-      
+
       // Randomly decide whether to call a tool or not
       const shouldCallTool = Math.random() > 0.5;
-      
+
       if (!shouldCallTool) {
         return {
           id: `azure-${Date.now()}`,
@@ -139,10 +144,10 @@ export class AzureAugmentedLLM extends AugmentedLLM {
             {
               index: 0,
               message: {
-                role: 'assistant',
+                role: "assistant",
                 content: `This is a mock response from Azure (${this.model}) to: "${userContent}"`,
               },
-              finish_reason: 'stop',
+              finish_reason: "stop",
             },
           ],
           usage: {
@@ -152,30 +157,30 @@ export class AzureAugmentedLLM extends AugmentedLLM {
           },
         };
       }
-      
+
       // Pick a random tool
       const randomTool = tools[Math.floor(Math.random() * tools.length)];
-      
+
       return {
         id: `azure-${Date.now()}`,
         choices: [
           {
             index: 0,
             message: {
-              role: 'assistant',
+              role: "assistant",
               content: `I'll help you with that. Let me use a tool to get more information.`,
               tool_calls: [
                 {
                   id: `call_${Date.now()}`,
-                  type: 'function',
+                  type: "function",
                   function: {
                     name: randomTool.function.name,
-                    arguments: '{}',
+                    arguments: "{}",
                   },
                 },
               ],
             },
-            finish_reason: 'tool_calls',
+            finish_reason: "tool_calls",
           },
         ],
         usage: {
@@ -185,21 +190,21 @@ export class AzureAugmentedLLM extends AugmentedLLM {
         },
       };
     } catch (error) {
-      logger.error('Error in Azure completion with tools', { error });
+      logger.error("Error in Azure completion with tools", { error });
       throw error;
     }
   }
-  
+
   /**
    * Execute a tool call
-   * 
+   *
    * @param toolCall - The tool call to execute
    * @returns The result of the tool call
    */
   private async executeToolCall(toolCall: AzureToolCall): Promise<any> {
     const toolName = toolCall.function.name;
     let toolArgs = {};
-    
+
     try {
       if (toolCall.function.arguments) {
         toolArgs = JSON.parse(toolCall.function.arguments);
@@ -211,13 +216,36 @@ export class AzureAugmentedLLM extends AugmentedLLM {
         toolCallId: toolCall.id,
       };
     }
-    
+
     logger.debug(`Executing tool call: ${toolName}`, { toolArgs });
-    
+
     try {
       const result = await this.agent.callTool(toolName, toolArgs);
+      // Handle different content types
+      let contentText = "";
+      if (Array.isArray(result.content)) {
+        const firstContent = result.content[0];
+        if (typeof firstContent === "object") {
+          if (firstContent.type === "text" && "text" in firstContent) {
+            contentText = firstContent.text;
+          } else if (
+            firstContent.type === "resource" &&
+            "resource" in firstContent &&
+            "text" in firstContent.resource
+          ) {
+            contentText = firstContent.resource.text;
+          } else {
+            contentText = JSON.stringify(firstContent);
+          }
+        } else {
+          contentText = String(firstContent);
+        }
+      } else {
+        contentText = String(result.content);
+      }
+
       return {
-        content: result.content[0].text,
+        content: contentText,
         toolCallId: toolCall.id,
       };
     } catch (error) {

@@ -2,10 +2,10 @@
  * Rich-based progress display for MCP Agent.
  */
 
-import { Console } from 'rich';
-import { Progress, SpinnerColumn, TextColumn } from 'rich/progress';
-import { console as defaultConsole } from '../console.js';
-import { ProgressEvent, ProgressAction } from '../event_progress.js';
+import { Console } from "rich";
+import { Progress, SpinnerColumn, TextColumn } from "rich/progress";
+import { console as defaultConsole } from "../console.js";
+import { ProgressEvent, ProgressAction } from "../event_progress.js";
 
 export class RichProgressDisplay {
   /**
@@ -25,19 +25,19 @@ export class RichProgressDisplay {
       console: this.console,
       transient: false,
       columns: [
-        new SpinnerColumn({ spinnerName: 'simpleDotsScrolling' }),
+        new SpinnerColumn({ spinnerName: "simpleDotsScrolling" }),
         new TextColumn({
-          textFormat: '[progress.description]{task.description}|'
+          textFormat: "[progress.description]{task.description}|",
         }),
         new TextColumn({
-          textFormat: '{task.fields[target]:<16}',
-          style: 'Bold Blue'
+          textFormat: "{task.fields[target]:<16}",
+          style: "Bold Blue",
         }),
         new TextColumn({
-          textFormat: '{task.fields[details]}',
-          style: 'dim white'
-        })
-      ]
+          textFormat: "{task.fields[details]}",
+          style: "dim white",
+        }),
+      ],
     });
   }
 
@@ -99,36 +99,35 @@ export class RichProgressDisplay {
      * Map actions to appropriate styles.
      */
     const styles: Record<ProgressAction, string> = {
-      [ProgressAction.STARTING]: 'bold yellow',
-      [ProgressAction.LOADED]: 'dim green',
-      [ProgressAction.INITIALIZED]: 'dim green',
-      [ProgressAction.RUNNING]: 'black on green',
-      [ProgressAction.CHATTING]: 'bold blue',
-      [ProgressAction.ROUTING]: 'bold blue',
-      [ProgressAction.PLANNING]: 'bold blue',
-      [ProgressAction.READY]: 'dim green',
-      [ProgressAction.CALLING_TOOL]: 'bold magenta',
-      [ProgressAction.FINISHED]: 'black on green',
-      [ProgressAction.SHUTDOWN]: 'black on red',
-      [ProgressAction.AGGREGATOR_INITIALIZED]: 'bold green',
-      [ProgressAction.FATAL_ERROR]: 'black on red'
+      [ProgressAction.STARTING]: "bold yellow",
+      [ProgressAction.LOADED]: "dim green",
+      [ProgressAction.INITIALIZED]: "dim green",
+      [ProgressAction.RUNNING]: "black on green",
+      [ProgressAction.CHATTING]: "bold blue",
+      [ProgressAction.ROUTING]: "bold blue",
+      [ProgressAction.PLANNING]: "bold blue",
+      [ProgressAction.READY]: "dim green",
+      [ProgressAction.CALLING_TOOL]: "bold magenta",
+      [ProgressAction.FINISHED]: "black on green",
+      [ProgressAction.SHUTDOWN]: "black on red",
+      [ProgressAction.FATAL_ERROR]: "black on red",
     };
 
-    return styles[action] || 'white';
+    return styles[action] || "white";
   }
 
   update(event: ProgressEvent): void {
     /**
      * Update the progress display with a new event.
      */
-    const taskName = event.agentName || 'default';
+    const taskName = event.agent_name || "default";
 
     // Create new task if needed
     if (!this._taskmap[taskName]) {
-      const taskId = this._progress.addTask('', {
+      const taskId = this._progress.addTask("", {
         total: undefined,
         target: event.target || taskName, // Use task_name as fallback for target
-        details: event.agentName || ''
+        details: event.agent_name || "",
       });
       this._taskmap[taskName] = taskId;
     } else {
@@ -139,10 +138,12 @@ export class RichProgressDisplay {
 
     // Ensure no undefined values in the update
     this._progress.updateTask(taskId, {
-      description: `[${this._getActionStyle(event.action)}]${event.action.toString().padEnd(15)}`,
+      description: `[${this._getActionStyle(event.action)}]${event.action
+        .toString()
+        .padEnd(15)}`,
       target: event.target || taskName, // Use task_name as fallback for target
-      details: event.details || '',
-      taskName: taskName
+      details: event.details || "",
+      taskName: taskName,
     });
 
     if (
@@ -152,16 +153,18 @@ export class RichProgressDisplay {
     ) {
       this._progress.updateTask(taskId, {
         completed: 100,
-        total: 100
+        total: 100,
       });
     } else if (event.action === ProgressAction.FINISHED) {
-      const task = this._progress.tasks.find(t => t.id === taskId);
-      const elapsedTime = task ? this.formatElapsedTime(task.elapsed) : '00:00:00';
+      const task = this._progress.tasks.find((t: any) => t.id === taskId);
+      const elapsedTime = task
+        ? this.formatElapsedTime(task.elapsed)
+        : "00:00:00";
 
       this._progress.updateTask(taskId, {
         completed: 100,
         total: 100,
-        details: ` / Elapsed Time ${elapsedTime}`
+        details: ` / Elapsed Time ${elapsedTime}`,
       });
 
       // Hide other tasks
@@ -174,7 +177,7 @@ export class RichProgressDisplay {
       this._progress.updateTask(taskId, {
         completed: 100,
         total: 100,
-        details: ` / ${event.details}`
+        details: ` / ${event.details}`,
       });
 
       // Hide other tasks
@@ -194,7 +197,9 @@ export class RichProgressDisplay {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   }
 }

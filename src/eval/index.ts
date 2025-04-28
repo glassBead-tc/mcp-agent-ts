@@ -11,7 +11,7 @@ export class Evaluator extends ContextDependent {
    */
   
   constructor(context?: Context, ...args: any[]) {
-    super({ context, ...args });
+    super(context);
   }
   
   async evaluate(data: any): Promise<EvaluationResult> {
@@ -43,7 +43,7 @@ export class LLMEvaluator extends Evaluator {
   instruction: string;
   
   constructor(instruction: string, context?: Context, ...args: any[]) {
-    super({ context, ...args });
+    super(context);
     this.instruction = instruction;
   }
   
@@ -61,7 +61,7 @@ export class RuleBasedEvaluator extends Evaluator {
   rules: EvaluationRule[];
   
   constructor(rules: EvaluationRule[], context?: Context, ...args: any[]) {
-    super({ context, ...args });
+    super(context);
     this.rules = rules;
   }
   

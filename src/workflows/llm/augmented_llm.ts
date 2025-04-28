@@ -1,16 +1,16 @@
 /**
  * Augmented LLM base class for MCP Agent
  */
-import { Agent } from '../../agents/agent.js';
-import { getLogger } from '../../logging/logger.js';
+import { Agent } from "../../agents/agent.js";
+import { getLogger } from "../../logging/logger.js";
 
-const logger = getLogger('augmented_llm');
+const logger = getLogger("augmented_llm");
 
 /**
  * Message interface
  */
 export interface Message {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
   name?: string;
   tool_call_id?: string;
@@ -35,7 +35,7 @@ export interface CompletionOptions {
   presence_penalty?: number;
   stop?: string[];
   tools?: any[];
-  tool_choice?: 'auto' | 'none' | { type: string; function: { name: string } };
+  tool_choice?: "auto" | "none" | { type: string; function: { name: string } };
   [key: string]: any;
 }
 
@@ -65,23 +65,21 @@ export abstract class AugmentedLLM {
   protected apiKey?: string;
   protected baseUrl?: string;
   protected options: Record<string, any>;
-  
-  constructor(
-    options: {
-      agent: Agent;
-      model: string;
-      apiKey?: string;
-      baseUrl?: string;
-      options?: Record<string, any>;
-    }
-  ) {
+
+  constructor(options: {
+    agent: Agent;
+    model: string;
+    apiKey?: string;
+    baseUrl?: string;
+    options?: Record<string, any>;
+  }) {
     this.agent = options.agent;
     this.model = options.model;
     this.apiKey = options.apiKey;
     this.baseUrl = options.baseUrl;
     this.options = options.options || {};
   }
-  
+
   /**
    * Complete a conversation
    */
@@ -89,7 +87,7 @@ export abstract class AugmentedLLM {
     messages: Message[],
     options?: CompletionOptions
   ): Promise<CompletionResult>;
-  
+
   /**
    * Complete a conversation with tool calling
    */
@@ -97,7 +95,31 @@ export abstract class AugmentedLLM {
     messages: Message[],
     options?: CompletionOptions
   ): Promise<CompletionResult>;
-  
+
+  /**
+   * Generate a response to a string input
+   *
+   * @param input - The user input string
+   * @param options - Optional completion options
+   * @returns The generated response text
+   */
+  async generateStr(
+    input: string,
+    options?: CompletionOptions
+  ): Promise<string> {
+    const instruction = this.getInstruction();
+
+    const messages: Message[] = [
+      { role: "system", content: instruction },
+      { role: "user", content: input },
+    ];
+
+    const resultMessages = await this.runConversation(messages, options);
+    const assistantMessage = resultMessages.find((m) => m.role === "assistant");
+
+    return assistantMessage?.content || "";
+  }
+
   /**
    * Run a conversation with tool calling
    */
@@ -105,22 +127,22 @@ export abstract class AugmentedLLM {
     messages: Message[],
     options?: CompletionOptions
   ): Promise<Message[]> {
-    logger.debug('Running conversation', { messages });
-    
+    logger.debug("Running conversation", { messages });
+
     const allMessages = [...messages];
     let lastMessage = allMessages[allMessages.length - 1];
-    
+
     // Get available tools
     const toolsResult = await this.agent.listTools();
-    const tools = toolsResult.tools.map(tool => ({
-      type: 'function',
+    const tools = toolsResult.tools.map((tool) => ({
+      type: "function",
       function: {
         name: tool.name,
         description: tool.description,
         parameters: tool.inputSchema,
       },
     }));
-    
+
     // Run the conversation
     while (true) {
       // Complete with tools
@@ -128,64 +150,75 @@ export abstract class AugmentedLLM {
         ...options,
         tools,
       });
-      
+
       const assistantMessage = completion.choices[0].message;
       allMessages.push(assistantMessage);
-      
+
       // Check if there are tool calls
-      if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+      if (
+        !assistantMessage.tool_calls ||
+        assistantMessage.tool_calls.length === 0
+      ) {
         break;
       }
-      
+
       // Process tool calls
       for (const toolCall of assistantMessage.tool_calls) {
         const toolName = toolCall.function.name;
         const toolArgs = JSON.parse(toolCall.function.arguments);
-        
+
         logger.debug(`Calling tool ${toolName}`, { args: toolArgs });
-        
+
         try {
           // Call the tool
           const result = await this.agent.callTool(toolName, toolArgs);
-          
+
           // Add tool message
           const toolMessage: Message = {
-            role: 'tool',
+            role: "tool",
             content: result.isError
-              ? `Error: ${result.content[0].text}`
-              : result.content[0].text,
+              ? `Error: ${
+                  result.content[0].type === "text"
+                    ? result.content[0].text
+                    : JSON.stringify(result.content[0])
+                }`
+              : result.content[0].type === "text"
+              ? result.content[0].text
+              : JSON.stringify(result.content[0]),
             tool_call_id: toolCall.id,
           };
-          
+
           allMessages.push(toolMessage);
         } catch (error) {
           logger.error(`Error calling tool ${toolName}`, { error });
-          
+
           // Add error message
           const errorMessage: Message = {
-            role: 'tool',
-            content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            role: "tool",
+            content: `Error: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
             tool_call_id: toolCall.id,
           };
-          
+
           allMessages.push(errorMessage);
         }
       }
     }
-    
+
     return allMessages;
   }
-  
+
   /**
    * Get the instruction for the agent
    */
   protected getInstruction(): string {
     const instruction = this.agent.instruction;
-    
-    if (typeof instruction === 'function') {
+
+    if (typeof instruction === "function") {
       return instruction({});
     }
-    
+
     return instruction;
   }
 }
