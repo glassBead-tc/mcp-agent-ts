@@ -6,16 +6,16 @@
  */
 import { v4 as uuidv4 } from "uuid";
 import { Tool } from "@modelcontextprotocol/sdk/types";
-import { MCPAggregator } from "../mcp/mcp_aggregator";
-import { Context } from "../context";
-import { getLogger } from "../logging/logger";
+import { MCPAggregator } from "../mcp/mcp_aggregator.js";
+import { Context } from "../context.js";
+import { getLogger } from "../logging/logger.js";
 import {
   HumanInputCallback,
   HumanInputRequest,
   HumanInputResponse,
   HUMAN_INPUT_SIGNAL_NAME,
   HUMAN_INPUT_TOOL_NAME,
-} from "../types";
+} from "../types.js";
 
 const logger = getLogger("agent");
 

@@ -2,11 +2,11 @@
  * CLI for MCP Agent
  */
 import { Command } from 'commander';
-import { getSettings, updateSettings } from '../config';
-import { getLogger } from '../logging/logger';
-import { LogLevel } from '../types';
-import { configCommand } from './commands/config';
-import { Application } from './terminal';
+import { getSettings, updateSettings } from '../config/index.js';
+import { getLogger } from '../logging/logger.js';
+import { LogLevel } from '../types.js';
+import { configCommand } from './commands/config.js';
+import { Application } from './terminal.js';
 
 const logger = getLogger('cli');
 
