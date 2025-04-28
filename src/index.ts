@@ -31,21 +31,37 @@ export * from "./event_progress";
 export * from "./types";
 
 // Export executor components
-export { Executor } from "./executor/executor";
-export { ActivityRegistry } from "./executor/task_registry";
-export { DecoratorRegistry } from "./executor/decorator_registry";
-export { BaseWorkflow } from "./executor/workflow";
+export * from "./executor";
 
 // Export MCP components
 export { MCPConnectionManager } from "./mcp/mcp_connection_manager";
 export { MCPAggregator } from "./mcp/mcp_aggregator";
 export { ServerRegistry } from "./mcp/server_registry";
+export { genClient, connect, disconnect } from "./mcp/gen_client";
+export { MCPAgentClientSession } from "./mcp/mcp_agent_client_session";
+export { websocketClient } from "./mcp/websocket";
+export { stdioClientWithRichStderr } from "./mcp/stdio";
+export { app as mcpAgentServer, run as runMcpAgentServer, provideUserInput } from "./mcp/mcp_agent_server";
+export { ServerRegistry as MCPServerRegistry, InitHookCallable } from "./mcp_server_registry";
 
 // Export workflow components
 export * from "./workflows";
 
 // Export human input components
 export { consoleInputCallback } from "./human_input/handler";
+export * from "./human_input/types";
+
+// Export logging components
+export { telemetry, MCPRequestTrace } from "./logging/tracing";
+export { RichProgressDisplay } from "./logging/rich_progress";
+
+// Export progress display
+export { ProgressDisplay } from "./progress_display";
+
+// Export evaluation module
+export * from "./eval";
 
 // Export CLI
-export { runCLI } from "./cli/main";
+export { runCLI, createProgram } from "./cli/main";
+export { Application } from "./cli/terminal";
+export { configCommand } from "./cli/commands/config";

@@ -5,6 +5,8 @@ import { Command } from 'commander';
 import { getSettings, updateSettings } from '../config';
 import { getLogger } from '../logging/logger';
 import { LogLevel } from '../types';
+import { configCommand } from './commands/config';
+import { Application } from './terminal';
 
 const logger = getLogger('cli');
 
@@ -17,11 +19,12 @@ export function createProgram(): Command {
   program
     .name('mcp-agent')
     .description('MCP Agent CLI')
-    .version('0.0.1');
+    .version('0.0.1')
+    .option('-v, --verbose', 'Enable verbose logging')
+    .option('--no-color', 'Disable color output');
   
-  // Config command
-  const configCommand = program.command('config')
-    .description('Manage configuration');
+  // Add imported config command
+  program.addCommand(configCommand);
   
   // Config get command
   configCommand.command('get')
@@ -129,5 +132,18 @@ export function createProgram(): Command {
  */
 export function runCLI(): void {
   const program = createProgram();
+  
+  // Parse arguments
   program.parse(process.argv);
+  
+  // Create terminal application with appropriate verbosity and color settings
+  const options = program.opts();
+  const terminal = new Application(
+    options.verbose ? 1 : 0,
+    !options.noColor
+  );
+  
+  // Set terminal in global context
+  // In a real implementation, this would be part of the context setup
+  (global as any).terminal = terminal;
 }
