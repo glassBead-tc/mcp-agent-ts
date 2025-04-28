@@ -1,7 +1,8 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
-module.exports = {
-  preset: 'ts-jest',
+export default {
+  preset: 'ts-jest/presets/js-with-ts-esm',
   testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts'],
   testMatch: ['**/tests/**/*.test.ts'],
   collectCoverage: true,
   collectCoverageFrom: [
@@ -15,8 +16,12 @@ module.exports = {
     '^.+\\.tsx?$': [
       'ts-jest',
       {
+        useESM: true,
         tsconfig: 'tsconfig.json',
       },
     ],
+  },
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };

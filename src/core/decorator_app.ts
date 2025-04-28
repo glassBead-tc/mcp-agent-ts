@@ -3,13 +3,13 @@
  * Provides a simplified way to create and manage agents using decorators.
  */
 
-import * as yaml from 'js-yaml';
-import { MCPApp } from '../app.js';
-import { Agent } from '../agents/agent.js';
-import { Settings } from '../config.js';
-import { Context } from '../context.js';
-import { AugmentedLLM } from '../workflows/llm/augmented_llm.js';
-import { AnthropicAugmentedLLM } from '../workflows/llm/augmented_llm_anthropic.js';
+import * as yaml from "js-yaml";
+import { MCPApp } from "../app.js";
+import { Agent } from "../agents/agent.js";
+import { Settings } from "../config.js";
+import { Context } from "../context.js";
+import { AugmentedLLM } from "../workflows/llm/augmented_llm.js";
+import { AnthropicAugmentedLLM } from "../workflows/llm/augmented_llm_anthropic.js";
 
 interface AgentConfig {
   instruction: string;
@@ -39,7 +39,7 @@ export class MCPAgentDecorator {
     this._loadConfig();
     this.app = new MCPApp({
       name,
-      settings: this.config ? new Settings(this.config) : undefined
+      settings: this.config ? new Settings(this.config) : undefined,
     });
   }
 
@@ -50,8 +50,8 @@ export class MCPAgentDecorator {
   private _loadConfig(): void {
     if (this.configPath) {
       try {
-        const fs = require('fs');
-        const content = fs.readFileSync(this.configPath, 'utf8');
+        const fs = require("fs");
+        const content = fs.readFileSync(this.configPath, "utf8");
         this.config = yaml.load(content) as Record<string, any>;
       } catch (error) {
         console.error(`Error loading config file: ${error}`);
@@ -83,18 +83,18 @@ export class MCPAgentDecorator {
    *
    * @returns An async context manager for running the application
    */
-  async run(): Promise<{ 
-    wrapper: AgentAppWrapper; 
-    cleanup: () => Promise<void>; 
+  async run(): Promise<{
+    wrapper: AgentAppWrapper;
+    cleanup: () => Promise<void>;
   }> {
     let runContext: Context | undefined;
-    
+
     // Initialize the app
     await this.app.initialize();
     runContext = this.app.context;
-    
+
     const activeAgents: Record<string, Agent> = {};
-    
+
     // Create and initialize all registered agents with proper context
     for (const [name, config] of Object.entries(this.agents)) {
       const agent = new Agent({
@@ -103,28 +103,30 @@ export class MCPAgentDecorator {
         serverNames: config.servers,
         context: runContext,
       });
-      
+
       await agent.initialize();
       activeAgents[name] = agent;
-      
+
       // Attach LLM to each agent
-      const llm = await agent.attachLLM(async (a) => new AnthropicAugmentedLLM({ agent: a }));
+      const llm = await agent.attachLLM(
+        async (a) => new AnthropicAugmentedLLM({ agent: a })
+      );
       (agent as any)._llm = llm;
     }
-    
+
     // Create a wrapper object with simplified interface
     const wrapper = new AgentAppWrapper(this.app, activeAgents);
-    
+
     const cleanup = async () => {
       // Cleanup agents
       for (const agent of Object.values(activeAgents)) {
         await agent.shutdown();
       }
-      
+
       // Cleanup app
       await this.app.cleanup();
     };
-    
+
     return { wrapper, cleanup };
   }
 }
@@ -138,7 +140,7 @@ export class AgentAppWrapper {
 
   /**
    * Create a new agent app wrapper
-   * 
+   *
    * @param app - The MCPApp instance
    * @param agents - Map of agent names to agent instances
    */
@@ -163,7 +165,7 @@ export class AgentAppWrapper {
     if (!(agent as any)._llm) {
       throw new Error(`Agent ${agentName} has no LLM attached`);
     }
-    
+
     const llm = (agent as any)._llm as AugmentedLLM;
     const result = await llm.generateStr(message);
     return result;

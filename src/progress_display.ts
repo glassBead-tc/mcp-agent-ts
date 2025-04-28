@@ -5,7 +5,7 @@
 import { ProgressEvent } from './event_progress.js';
 import { RichProgressDisplay } from './logging/rich_progress.js';
 import { ContextDependent } from './context_dependent.js';
-import { Context } from './context.js';
+import { Context } from './context/index.js';
 
 export class ProgressDisplay extends ContextDependent {
   /**

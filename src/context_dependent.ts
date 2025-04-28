@@ -3,7 +3,22 @@
  * Provides both global fallback and instance-specific context support.
  */
 
-import { Context, getCurrentContext } from './context.js';
+import { Context, getCurrentContext } from './context/index.js';
+
+/**
+ * Decorator for creating async context manager functions
+ */
+export function asyncContextManager<T, A extends any[]>(
+  fn: (...args: A) => Promise<T>
+): (...args: A) => Promise<T> {
+  return async (...args: A): Promise<T> => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      throw error;
+    }
+  };
+}
 
 /**
  * Mixin class for components that need context access.

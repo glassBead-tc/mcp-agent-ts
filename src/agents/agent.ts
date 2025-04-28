@@ -20,6 +20,15 @@ import {
 const logger = getLogger("agent");
 
 /**
+ * Extended Function interface with description property
+ *
+ * @interface
+ */
+export interface FunctionWithDescription extends Function {
+  description?: string;
+}
+
+/**
  * Function tool interface
  *
  * Represents a function that can be called as a tool by the agent.
@@ -28,7 +37,11 @@ const logger = getLogger("agent");
 export interface FunctionTool {
   name: string;
   description: string;
-  parameters: Record<string, any>;
+  parameters: {
+    type: "object";
+    properties: Record<string, any>;
+    required: string[];
+  };
   run: (args: Record<string, any>) => Promise<any>;
 }
 
@@ -43,7 +56,7 @@ export interface FunctionTool {
 export class Agent extends MCPAggregator {
   name: string;
   instruction: string | ((context: Record<string, any>) => string);
-  functions: Function[];
+  functions: FunctionWithDescription[];
   private functionToolMap: Map<string, FunctionTool> = new Map();
   humanInputCallback?: HumanInputCallback;
 
@@ -63,7 +76,7 @@ export class Agent extends MCPAggregator {
     name: string;
     instruction?: string | ((context: Record<string, any>) => string);
     serverNames?: string[];
-    functions?: Function[];
+    functions?: FunctionWithDescription[];
     connectionPersistence?: boolean;
     humanInputCallback?: HumanInputCallback;
     context?: Context;
@@ -113,7 +126,7 @@ export class Agent extends MCPAggregator {
    * @returns The function tool
    * @private
    */
-  private createFunctionTool(fn: Function): FunctionTool {
+  private createFunctionTool(fn: FunctionWithDescription): FunctionTool {
     // Get function name and description
     const name = fn.name;
     const description = fn.description || `Function ${name}`;
@@ -122,9 +135,9 @@ export class Agent extends MCPAggregator {
     // This is a simplified version - in a real implementation, we would
     // use reflection or decorators to get parameter information
     const parameters = {
-      type: "object",
+      type: "object" as const,
       properties: {},
-      required: [],
+      required: [] as string[],
     };
 
     // Create tool
@@ -317,8 +330,19 @@ export class Agent extends MCPAggregator {
     name: string,
     arguments_: Record<string, any> | null = null
   ): Promise<{
+    content: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; data: string; mimeType: string }
+      | { type: "audio"; data: string; mimeType: string }
+      | {
+          type: "resource";
+          resource:
+            | { text: string; uri: string; mimeType?: string }
+            | { uri: string; blob: string; mimeType?: string };
+        }
+    >;
+    _meta?: Record<string, unknown>;
     isError?: boolean;
-    content: { type: string; text: string }[];
   }> {
     // Handle human input tool
     if (name === HUMAN_INPUT_TOOL_NAME) {
@@ -333,7 +357,7 @@ export class Agent extends MCPAggregator {
         return {
           content: [
             {
-              type: "text",
+              type: "text" as const,
               text:
                 typeof result === "string" ? result : JSON.stringify(result),
             },
@@ -345,7 +369,7 @@ export class Agent extends MCPAggregator {
           isError: true,
           content: [
             {
-              type: "text",
+              type: "text" as const,
               text: `Error calling function ${name}: ${
                 error instanceof Error ? error.message : String(error)
               }`,
@@ -371,8 +395,19 @@ export class Agent extends MCPAggregator {
   private async callHumanInputTool(
     arguments_: Record<string, any> | null = null
   ): Promise<{
+    content: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; data: string; mimeType: string }
+      | { type: "audio"; data: string; mimeType: string }
+      | {
+          type: "resource";
+          resource:
+            | { text: string; uri: string; mimeType?: string }
+            | { uri: string; blob: string; mimeType?: string };
+        }
+    >;
+    _meta?: Record<string, unknown>;
     isError?: boolean;
-    content: { type: string; text: string }[];
   }> {
     try {
       if (!arguments_ || !arguments_.request) {
@@ -380,7 +415,7 @@ export class Agent extends MCPAggregator {
           isError: true,
           content: [
             {
-              type: "text",
+              type: "text" as const,
               text: "Error: Missing request parameter",
             },
           ],
@@ -393,7 +428,7 @@ export class Agent extends MCPAggregator {
       return {
         content: [
           {
-            type: "text",
+            type: "text" as const,
             text: `Human response: ${JSON.stringify(result)}`,
           },
         ],
@@ -404,7 +439,7 @@ export class Agent extends MCPAggregator {
           isError: true,
           content: [
             {
-              type: "text",
+              type: "text" as const,
               text: `Error: Human input request timed out: ${error.message}`,
             },
           ],
@@ -415,7 +450,7 @@ export class Agent extends MCPAggregator {
         isError: true,
         content: [
           {
-            type: "text",
+            type: "text" as const,
             text: `Error requesting human input: ${
               error instanceof Error ? error.message : String(error)
             }`,
