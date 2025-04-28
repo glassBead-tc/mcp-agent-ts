@@ -177,3 +177,4 @@ project_contents.md
 # example logs
 examples/**/*.jsonl
 node_modules
+dist

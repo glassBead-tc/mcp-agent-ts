@@ -3,7 +3,7 @@
  */
 import pino from 'pino';
 import { LogLevel } from '../types.js';
-import { getSettings, LoggerConfig } from '../config.js';
+import { getSettings, LoggerConfig } from '../config/index.js';
 
 // Map our log levels to pino log levels
 const LOG_LEVEL_MAP: Record<LogLevel, string> = {
