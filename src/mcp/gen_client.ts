@@ -1,10 +1,10 @@
-import { asyncContextManager } from '../context_dependent';
+import { asyncContextManager } from '../context_dependent.js';
 import { MemoryObjectReceiveStream, MemoryObjectSendStream } from 'anyio-streams';
 import { ClientSession } from 'mcp';
 import { JSONRPCMessage } from 'mcp/types';
-import { getLogger } from '../logging/logger';
-import { ServerRegistry } from './server_registry';
-import { MCPAgentClientSession } from './mcp_agent_client_session';
+import { getLogger } from '../logging/logger.js';
+import { ServerRegistry } from './server_registry.js';
+import { MCPAgentClientSession } from './mcp_agent_client_session.js';
 
 const logger = getLogger('mcp/gen_client');
 

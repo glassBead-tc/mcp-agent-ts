@@ -1,7 +1,7 @@
-import { Agent } from '../../agents/agent';
-import { AnthropicAugmentedLLM } from '../llm/augmented_llm_anthropic';
-import { LLMRouter } from './router_llm';
-import { Context } from '../../context';
+import { Agent } from '../../agents/agent.js';
+import { AnthropicAugmentedLLM } from '../llm/augmented_llm_anthropic.js';
+import { LLMRouter } from './router_llm.js';
+import { Context } from '../../context.js';
 
 const ROUTING_SYSTEM_INSTRUCTION = `
 You are a highly accurate request router that directs incoming requests to the most appropriate category.

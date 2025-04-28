@@ -1,7 +1,7 @@
 /**
  * Base executor interface for MCP Agent
  */
-import { getLogger } from '../logging/logger';
+import { getLogger } from '../logging/logger.js';
 
 const logger = getLogger('executor');
 

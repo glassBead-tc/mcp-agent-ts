@@ -4,12 +4,12 @@
  */
 
 import * as yaml from 'js-yaml';
-import { MCPApp } from '../app';
-import { Agent } from '../agents/agent';
-import { Settings } from '../config';
-import { Context } from '../context';
-import { AugmentedLLM } from '../workflows/llm/augmented_llm';
-import { AnthropicAugmentedLLM } from '../workflows/llm/augmented_llm_anthropic';
+import { MCPApp } from '../app.js';
+import { Agent } from '../agents/agent.js';
+import { Settings } from '../config.js';
+import { Context } from '../context.js';
+import { AugmentedLLM } from '../workflows/llm/augmented_llm.js';
+import { AnthropicAugmentedLLM } from '../workflows/llm/augmented_llm_anthropic.js';
 
 interface AgentConfig {
   instruction: string;

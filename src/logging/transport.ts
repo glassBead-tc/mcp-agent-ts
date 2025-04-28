@@ -2,8 +2,8 @@
  * Transport system for logging
  */
 import fs from 'fs';
-import { LoggerConfig } from '../config';
-import { Event, EventFilter } from './events';
+import { LoggerConfig } from '../config.js';
+import { Event, EventFilter } from './events.js';
 
 /**
  * Transport interface for handling log events

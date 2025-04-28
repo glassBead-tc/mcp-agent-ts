@@ -3,9 +3,9 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
-import { getLogger } from '../logging/logger';
-import { ServerRegistry, MCPServerConfig } from './server_registry';
-import { Context } from '../context';
+import { getLogger } from '../logging/logger.js';
+import { ServerRegistry, MCPServerConfig } from './server_registry.js';
+import { Context } from '../context.js';
 
 const logger = getLogger('mcp_connection_manager');
 

@@ -4,8 +4,8 @@
 
 import { FastMCP, NotificationOptions } from 'mcp/server/fastmcp';
 import { stdioServer } from 'mcp/server/stdio';
-import { getTemporalClient } from '../executor/temporal';
-import { setupTracing } from '../logging/tracing';
+import { getTemporalClient } from '../executor/temporal.js';
+import { setupTracing } from '../logging/tracing.js';
 
 // Create the MCP Agent server
 const app = new FastMCP('mcp-agent-server');

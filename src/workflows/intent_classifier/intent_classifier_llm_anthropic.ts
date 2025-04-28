@@ -1,11 +1,11 @@
 /**
  * Anthropic implementation of LLM-based intent classifier
  */
-import { AnthropicAugmentedLLM } from '../llm/augmented_llm_anthropic';
-import { LLMIntentClassifier } from './intent_classifier_llm';
-import { Intent } from './intent_classifier_base';
-import { Agent } from '../../agents/agent';
-import { Context } from '../../context';
+import { AnthropicAugmentedLLM } from '../llm/augmented_llm_anthropic.js';
+import { LLMIntentClassifier } from './intent_classifier_llm.js';
+import { Intent } from './intent_classifier_base.js';
+import { Agent } from '../../agents/agent.js';
+import { Context } from '../../context.js';
 
 /**
  * An intent classifier that uses Anthropic models for classification

@@ -4,8 +4,8 @@
 
 import { Console } from 'rich';
 import { Progress, SpinnerColumn, TextColumn } from 'rich/progress';
-import { console as defaultConsole } from '../console';
-import { ProgressEvent, ProgressAction } from '../event_progress';
+import { console as defaultConsole } from '../console.js';
+import { ProgressEvent, ProgressAction } from '../event_progress.js';
 
 export class RichProgressDisplay {
   /**

@@ -1,10 +1,10 @@
 /**
  * LLM-based intent classifier
  */
-import { AugmentedLLM } from '../llm/augmented_llm';
-import { Intent, IntentClassifier, IntentClassificationResult } from './intent_classifier_base';
-import { Context } from '../../context';
-import { getLogger } from '../../logging/logger';
+import { AugmentedLLM } from '../llm/augmented_llm.js';
+import { Intent, IntentClassifier, IntentClassificationResult } from './intent_classifier_base.js';
+import { Context } from '../../context.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('intent_classifier_llm');
 

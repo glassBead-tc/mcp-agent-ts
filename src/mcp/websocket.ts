@@ -2,10 +2,10 @@
  * Websocket transport layer for MCP agent to connect to MCP servers.
  */
 
-import { asyncContextManager } from '../context_dependent';
+import { asyncContextManager } from '../context_dependent.js';
 import { MemoryObjectReceiveStream, MemoryObjectSendStream, createMemoryObjectStream } from 'anyio-streams';
 import { JSONRPCMessage } from 'mcp/types';
-import { getLogger } from '../logging/logger';
+import { getLogger } from '../logging/logger.js';
 import WebSocket from 'ws';
 
 const logger = getLogger('mcp/websocket');

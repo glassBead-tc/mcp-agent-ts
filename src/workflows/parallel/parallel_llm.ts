@@ -4,11 +4,11 @@
  * This LLM distributes a task to multiple agents in parallel and then
  * aggregates the results.
  */
-import { Agent } from '../../agents/agent';
-import { AugmentedLLM, Message, CompletionOptions, CompletionResult } from '../llm/augmented_llm';
-import { FanOut } from './fan_out';
-import { FanIn } from './fan_in';
-import { getLogger } from '../../logging/logger';
+import { Agent } from '../../agents/agent.js';
+import { AugmentedLLM, Message, CompletionOptions, CompletionResult } from '../llm/augmented_llm.js';
+import { FanOut } from './fan_out.js';
+import { FanIn } from './fan_in.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('parallel_llm');
 

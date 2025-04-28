@@ -4,10 +4,10 @@
  * This workflow uses one LLM to generate responses and another to evaluate
  * and provide feedback in a refinement loop.
  */
-import { Agent } from '../../agents/agent';
-import { Context } from '../../context';
-import { AugmentedLLM, Message, CompletionOptions } from '../llm/augmented_llm';
-import { getLogger } from '../../logging/logger';
+import { Agent } from '../../agents/agent.js';
+import { Context } from '../../context.js';
+import { AugmentedLLM, Message, CompletionOptions } from '../llm/augmented_llm.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('evaluator_optimizer');
 

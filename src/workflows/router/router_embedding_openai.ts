@@ -1,10 +1,10 @@
 /**
  * OpenAI embedding-based router for MCP Agent
  */
-import { EmbeddingRouter, EmbeddingProvider } from './router_embedding';
-import { Agent } from '../../agents/agent';
-import { getLogger } from '../../logging/logger';
-import { OpenAIEmbeddingModel } from '../embedding/embedding_openai';
+import { EmbeddingRouter, EmbeddingProvider } from './router_embedding.js';
+import { Agent } from '../../agents/agent.js';
+import { getLogger } from '../../logging/logger.js';
+import { OpenAIEmbeddingModel } from '../embedding/embedding_openai.js';
 
 const logger = getLogger('router_embedding_openai');
 

@@ -1,8 +1,8 @@
 /**
  * MCP server registry for MCP Agent
  */
-import { Settings } from '../config';
-import { getLogger } from '../logging/logger';
+import { Settings } from '../config.js';
+import { getLogger } from '../logging/logger.js';
 
 const logger = getLogger('server_registry');
 

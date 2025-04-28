@@ -1,9 +1,9 @@
 /**
  * AWS Bedrock implementation of AugmentedLLM
  */
-import { AugmentedLLM, Message, CompletionOptions, CompletionResult } from './augmented_llm';
-import { Agent } from '../../agents/agent';
-import { getLogger } from '../../logging/logger';
+import { AugmentedLLM, Message, CompletionOptions, CompletionResult } from './augmented_llm.js';
+import { Agent } from '../../agents/agent.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('augmented_llm_bedrock');
 

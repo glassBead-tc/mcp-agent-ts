@@ -2,10 +2,10 @@
  * Progress display manager for MCP Agent
  */
 
-import { ProgressEvent } from './event_progress';
-import { RichProgressDisplay } from './logging/rich_progress';
-import { ContextDependent } from './context_dependent';
-import { Context } from './context';
+import { ProgressEvent } from './event_progress.js';
+import { RichProgressDisplay } from './logging/rich_progress.js';
+import { ContextDependent } from './context_dependent.js';
+import { Context } from './context.js';
 
 export class ProgressDisplay extends ContextDependent {
   /**

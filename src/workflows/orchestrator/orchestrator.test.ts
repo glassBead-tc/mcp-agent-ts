@@ -1,9 +1,9 @@
 /**
  * Tests for the Orchestrator workflow
  */
-import { Agent } from '../../agents/agent';
-import { AugmentedLLM, Message, CompletionOptions, CompletionResult } from '../llm/augmented_llm';
-import { Orchestrator, PlanType } from './orchestrator';
+import { Agent } from '../../agents/agent.js';
+import { AugmentedLLM, Message, CompletionOptions, CompletionResult } from '../llm/augmented_llm.js';
+import { Orchestrator, PlanType } from './orchestrator.js';
 
 // Mock AugmentedLLM class
 class MockAugmentedLLM extends AugmentedLLM {

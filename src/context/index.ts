@@ -6,17 +6,17 @@ import { Resource } from '@opentelemetry/resources';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { TextMapPropagator } from '@opentelemetry/api';
 
-import { getSettings, Settings } from '../config';
-import { LoggingConfig } from '../logging/logger';
-import { EventFilter } from '../logging/events';
-import { createTransport } from '../logging/transport';
-import { ServerRegistry } from '../mcp/server_registry';
-import { Executor } from '../executor/executor';
-import { AsyncioExecutor } from '../executor/asyncio_executor';
-import { DecoratorRegistry } from '../executor/decorator_registry';
-import { ActivityRegistry } from '../executor/task_registry';
-import { HumanInputCallback, SignalWaitCallback } from '../types';
-import { ModelSelector } from '../workflows/llm/model_selector';
+import { getSettings, Settings } from '../config.js';
+import { LoggingConfig } from '../logging/logger.js';
+import { EventFilter } from '../logging/events.js';
+import { createTransport } from '../logging/transport.js';
+import { ServerRegistry } from '../mcp/server_registry.js';
+import { Executor } from '../executor/executor.js';
+import { AsyncioExecutor } from '../executor/asyncio_executor.js';
+import { DecoratorRegistry } from '../executor/decorator_registry.js';
+import { ActivityRegistry } from '../executor/task_registry.js';
+import { HumanInputCallback, SignalWaitCallback } from '../types.js';
+import { ModelSelector } from '../workflows/llm/model_selector.js';
 
 // Import temporal executor conditionally
 let TemporalExecutor: any;

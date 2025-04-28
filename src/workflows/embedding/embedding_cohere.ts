@@ -1,9 +1,9 @@
 /**
  * Cohere embedding model implementation
  */
-import { EmbeddingModel, FloatArray } from './embedding_base';
-import { Context } from '../../context';
-import { getLogger } from '../../logging/logger';
+import { EmbeddingModel, FloatArray } from './embedding_base.js';
+import { Context } from '../../context.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('embedding_cohere');
 

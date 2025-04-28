@@ -2,8 +2,8 @@
  * Logging system for MCP Agent
  */
 import pino from 'pino';
-import { LogLevel } from '../types';
-import { getSettings, LoggerConfig } from '../config';
+import { LogLevel } from '../types.js';
+import { getSettings, LoggerConfig } from '../config.js';
 
 // Map our log levels to pino log levels
 const LOG_LEVEL_MAP: Record<LogLevel, string> = {

@@ -1,8 +1,8 @@
 /**
  * AsyncIO-based executor implementation
  */
-import { Executor } from './executor';
-import { getLogger } from '../logging/logger';
+import { Executor } from './executor.js';
+import { getLogger } from '../logging/logger.js';
 
 const logger = getLogger('asyncio_executor');
 

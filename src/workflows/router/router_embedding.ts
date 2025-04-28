@@ -4,9 +4,9 @@
  * This router uses embeddings to determine the most appropriate agent or function
  * for a given request.
  */
-import { Agent } from '../../agents/agent';
-import { RouterBase, RoutingResult } from './router_base';
-import { getLogger } from '../../logging/logger';
+import { Agent } from '../../agents/agent.js';
+import { RouterBase, RoutingResult } from './router_base.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('router_embedding');
 

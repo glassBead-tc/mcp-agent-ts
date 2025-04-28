@@ -1,8 +1,8 @@
 /**
  * Event listeners for logging
  */
-import { Event, EventListener } from './events';
-import { Transport } from './transport';
+import { Event, EventListener } from './events.js';
+import { Transport } from './transport.js';
 
 /**
  * Transport listener that sends events to a transport

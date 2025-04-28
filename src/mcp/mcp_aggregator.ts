@@ -3,9 +3,9 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { CallToolRequest, CallToolResult, ListToolsResult, Tool } from '@modelcontextprotocol/sdk/types';
-import { MCPConnectionManager } from './mcp_connection_manager';
-import { Context } from '../context';
-import { getLogger } from '../logging/logger';
+import { MCPConnectionManager } from './mcp_connection_manager.js';
+import { Context } from '../context.js';
+import { getLogger } from '../logging/logger.js';
 
 const logger = getLogger('mcp_aggregator');
 

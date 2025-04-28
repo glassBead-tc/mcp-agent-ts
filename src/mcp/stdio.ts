@@ -2,12 +2,12 @@
  * Custom implementation of stdio_client that handles stderr through rich console.
  */
 
-import { asyncContextManager } from '../context_dependent';
+import { asyncContextManager } from '../context_dependent.js';
 import { MemoryObjectReceiveStream, MemoryObjectSendStream, createMemoryObjectStream } from 'anyio-streams';
 import { TextReceiveStream } from 'anyio/streams/text';
 import { StdioServerParameters, getDefaultEnvironment } from 'mcp/client/stdio';
 import { JSONRPCMessage } from 'mcp/types';
-import { getLogger } from '../logging/logger';
+import { getLogger } from '../logging/logger.js';
 import * as path from 'path';
 import * as child_process from 'child_process';
 import * as stream from 'stream';

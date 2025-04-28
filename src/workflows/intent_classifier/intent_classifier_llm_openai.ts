@@ -1,11 +1,11 @@
 /**
  * OpenAI implementation of LLM-based intent classifier
  */
-import { OpenAIAugmentedLLM } from '../llm/augmented_llm_openai';
-import { LLMIntentClassifier } from './intent_classifier_llm';
-import { Intent } from './intent_classifier_base';
-import { Agent } from '../../agents/agent';
-import { Context } from '../../context';
+import { OpenAIAugmentedLLM } from '../llm/augmented_llm_openai.js';
+import { LLMIntentClassifier } from './intent_classifier_llm.js';
+import { Intent } from './intent_classifier_base.js';
+import { Agent } from '../../agents/agent.js';
+import { Context } from '../../context.js';
 
 /**
  * An intent classifier that uses OpenAI models for classification

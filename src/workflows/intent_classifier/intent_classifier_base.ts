@@ -1,8 +1,8 @@
 /**
  * Base classes and interfaces for intent classification
  */
-import { Context } from '../../context';
-import { ContextDependent } from '../../context_dependent';
+import { Context } from '../../context.js';
+import { ContextDependent } from '../../context_dependent.js';
 
 /**
  * A class that represents a single intent category

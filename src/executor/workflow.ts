@@ -2,8 +2,8 @@
  * Workflow base class for MCP Agent
  */
 import { v4 as uuidv4 } from 'uuid';
-import { getCurrentContext } from '../context';
-import { getLogger } from '../logging/logger';
+import { getCurrentContext } from '../context.js';
+import { getLogger } from '../logging/logger.js';
 
 const logger = getLogger('workflow');
 

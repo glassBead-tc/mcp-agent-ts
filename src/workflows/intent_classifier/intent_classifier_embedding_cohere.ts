@@ -1,10 +1,10 @@
 /**
  * Cohere implementation of embedding-based intent classifier
  */
-import { CohereEmbeddingModel } from '../embedding/embedding_cohere';
-import { EmbeddingIntentClassifier } from './intent_classifier_embedding';
-import { Intent } from './intent_classifier_base';
-import { Context } from '../../context';
+import { CohereEmbeddingModel } from '../embedding/embedding_cohere.js';
+import { EmbeddingIntentClassifier } from './intent_classifier_embedding.js';
+import { Intent } from './intent_classifier_base.js';
+import { Context } from '../../context.js';
 
 /**
  * An intent classifier that uses Cohere embeddings for classification

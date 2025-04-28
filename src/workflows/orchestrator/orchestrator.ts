@@ -4,13 +4,13 @@
  * This workflow generates a plan for a complex task, executes the steps in the plan
  * using specialized agents, and then summarizes the results.
  */
-import { Agent } from "../../agents/agent";
+import { Agent } from "../../agents/agent.js";
 import {
   AugmentedLLM,
   Message,
   CompletionOptions,
   CompletionResult,
-} from "../llm/augmented_llm";
+} from "../llm/augmented_llm.js";
 import {
   Plan,
   PlanSchema,
@@ -21,14 +21,14 @@ import {
   NextStep,
   NextStepSchema,
   formatPlanResult,
-} from "./orchestrator_models";
+} from "./orchestrator_models.js";
 import {
   PLAN_GENERATION_PROMPT,
   STEP_EXECUTION_PROMPT,
   SUMMARY_GENERATION_PROMPT,
   ITERATIVE_PLAN_PROMPT,
-} from "./orchestrator_prompts";
-import { getLogger } from "../../logging/logger";
+} from "./orchestrator_prompts.js";
+import { getLogger } from "../../logging/logger.js";
 
 const logger = getLogger("orchestrator");
 

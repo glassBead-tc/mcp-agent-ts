@@ -7,7 +7,7 @@
  * server initialization.
  */
 
-import { asyncContextManager } from './context_dependent';
+import { asyncContextManager } from './context_dependent.js';
 import { MemoryObjectReceiveStream, MemoryObjectSendStream } from 'anyio-streams';
 import { ClientSession } from 'mcp';
 import { StdioServerParameters, stdioClient, getDefaultEnvironment } from 'mcp/client/stdio';
@@ -18,11 +18,11 @@ import {
   MCPServerAuthSettings, 
   MCPServerSettings, 
   Settings 
-} from './config';
+} from './config.js';
 
-import { getLogger } from './logging/logger';
-import { MCPConnectionManager } from './mcp/mcp_connection_manager';
-import { websocketClient } from './mcp/websocket';
+import { getLogger } from './logging/logger.js';
+import { MCPConnectionManager } from './mcp/mcp_connection_manager.js';
+import { websocketClient } from './mcp/websocket.js';
 
 const logger = getLogger('mcp_server_registry');
 

@@ -3,10 +3,10 @@
  * 
  * MCP version of the OpenAI Swarm class, using OpenAI's ChatCompletion as the LLM
  */
-import { OpenAIAugmentedLLM } from '../llm/augmented_llm_openai';
-import { Message, CompletionOptions } from '../llm/augmented_llm';
-import { Swarm, SwarmAgent } from './swarm';
-import { getLogger } from '../../logging/logger';
+import { OpenAIAugmentedLLM } from '../llm/augmented_llm_openai.js';
+import { Message, CompletionOptions } from '../llm/augmented_llm.js';
+import { Swarm, SwarmAgent } from './swarm.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('swarm_openai');
 

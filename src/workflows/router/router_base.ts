@@ -4,8 +4,8 @@
  * The Router pattern routes requests to the most appropriate agent or function
  * based on the content of the request.
  */
-import { Agent } from '../../agents/agent';
-import { getLogger } from '../../logging/logger';
+import { Agent } from '../../agents/agent.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('router_base');
 

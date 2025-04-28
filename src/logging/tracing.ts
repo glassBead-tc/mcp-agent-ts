@@ -5,8 +5,8 @@
 
 import { trace, SpanKind, SpanStatusCode, Span, context, Context as OtelContext } from '@opentelemetry/api';
 import { TraceContextTextMapPropagator } from '@opentelemetry/core';
-import { ContextDependent } from '../context_dependent';
-import { Context } from '../context';
+import { ContextDependent } from '../context_dependent.js';
+import { Context } from '../context.js';
 
 export class TelemetryManager extends ContextDependent {
   /**

@@ -1,8 +1,8 @@
 /**
  * Usage tracking for MCP Agent
  */
-import { getSettings } from '../config';
-import { getLogger } from '../logging/logger';
+import { getSettings } from '../config.js';
+import { getLogger } from '../logging/logger.js';
 
 const logger = getLogger('usage_tracking');
 

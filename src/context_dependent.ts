@@ -3,7 +3,7 @@
  * Provides both global fallback and instance-specific context support.
  */
 
-import { Context, getCurrentContext } from './context';
+import { Context, getCurrentContext } from './context.js';
 
 /**
  * Mixin class for components that need context access.

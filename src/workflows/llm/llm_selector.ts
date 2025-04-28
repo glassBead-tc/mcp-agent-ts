@@ -3,7 +3,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { getLogger } from '../../logging/logger';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('llm_selector');
 

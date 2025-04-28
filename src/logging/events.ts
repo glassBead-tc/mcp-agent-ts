@@ -1,7 +1,7 @@
 /**
  * Event system for logging
  */
-import { LogLevel } from '../types';
+import { LogLevel } from '../types.js';
 
 /**
  * Base event interface

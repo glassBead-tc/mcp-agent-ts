@@ -1,10 +1,10 @@
 /**
  * Cohere embedding-based router for MCP Agent
  */
-import { EmbeddingRouter, EmbeddingProvider } from './router_embedding';
-import { Agent } from '../../agents/agent';
-import { getLogger } from '../../logging/logger';
-import { CohereEmbeddingModel } from '../embedding/embedding_cohere';
+import { EmbeddingRouter, EmbeddingProvider } from './router_embedding.js';
+import { Agent } from '../../agents/agent.js';
+import { getLogger } from '../../logging/logger.js';
+import { CohereEmbeddingModel } from '../embedding/embedding_cohere.js';
 
 const logger = getLogger('router_embedding_cohere');
 

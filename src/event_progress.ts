@@ -2,7 +2,7 @@
  * Module for converting log events to progress events
  */
 
-import { Event } from './logging/events';
+import { Event } from './logging/events.js';
 
 /**
  * Progress actions available in the system

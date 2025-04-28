@@ -18,9 +18,9 @@ import {
 } from 'mcp/types';
 import { RequestContext, RequestId } from 'mcp/shared/session';
 import { SamplingFnT, ListRootsFnT, LoggingFnT } from 'mcp/client/session';
-import { MCPServerSettings } from '../config';
-import { ContextDependent } from '../context_dependent';
-import { getLogger } from '../logging/logger';
+import { MCPServerSettings } from '../config.js';
+import { ContextDependent } from '../context_dependent.js';
+import { getLogger } from '../logging/logger.js';
 
 const logger = getLogger('mcp/mcp_agent_client_session');
 

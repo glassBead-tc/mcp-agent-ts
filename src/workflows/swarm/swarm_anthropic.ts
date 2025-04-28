@@ -3,10 +3,10 @@
  * 
  * MCP version of the OpenAI Swarm class, using Anthropic's API as the LLM
  */
-import { AnthropicAugmentedLLM } from '../llm/augmented_llm_anthropic';
-import { Message, CompletionOptions } from '../llm/augmented_llm';
-import { Swarm, SwarmAgent } from './swarm';
-import { getLogger } from '../../logging/logger';
+import { AnthropicAugmentedLLM } from '../llm/augmented_llm_anthropic.js';
+import { Message, CompletionOptions } from '../llm/augmented_llm.js';
+import { Swarm, SwarmAgent } from './swarm.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('swarm_anthropic');
 

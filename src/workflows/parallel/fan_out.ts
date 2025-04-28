@@ -3,9 +3,9 @@
  * 
  * This component distributes a task to multiple agents or LLMs in parallel.
  */
-import { Agent } from '../../agents/agent';
-import { AugmentedLLM, Message, CompletionOptions } from '../llm/augmented_llm';
-import { getLogger } from '../../logging/logger';
+import { Agent } from '../../agents/agent.js';
+import { AugmentedLLM, Message, CompletionOptions } from '../llm/augmented_llm.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('fan_out');
 

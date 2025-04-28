@@ -1,10 +1,10 @@
 /**
  * Embedding-based intent classifier
  */
-import { EmbeddingModel, computeConfidence, computeSimilarityScores } from '../embedding/embedding_base';
-import { Intent, IntentClassifier, IntentClassificationResult } from './intent_classifier_base';
-import { Context } from '../../context';
-import { getLogger } from '../../logging/logger';
+import { EmbeddingModel, computeConfidence, computeSimilarityScores } from '../embedding/embedding_base.js';
+import { Intent, IntentClassifier, IntentClassificationResult } from './intent_classifier_base.js';
+import { Context } from '../../context.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('intent_classifier_embedding');
 

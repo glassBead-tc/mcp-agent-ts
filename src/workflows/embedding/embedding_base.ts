@@ -1,7 +1,7 @@
 /**
  * Base classes and utilities for embedding functionality
  */
-import { ContextDependent } from '../../context_dependent';
+import { ContextDependent } from '../../context_dependent.js';
 
 /**
  * Type for embedding arrays (numeric vector representation of text)

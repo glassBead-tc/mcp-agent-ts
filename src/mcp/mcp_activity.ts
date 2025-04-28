@@ -1,5 +1,5 @@
 // import { activity } from 'temporalio';
-// import { genClient } from './gen_client';
+// import { genClient } from './gen_client.js';
 
 /**
  * Decorator factory for MCP activities

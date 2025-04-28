@@ -3,10 +3,10 @@
  * 
  * This component aggregates results from multiple agents into a single result.
  */
-import { Agent } from '../../agents/agent';
-import { AugmentedLLM, Message, CompletionOptions } from '../llm/augmented_llm';
-import { FanOutResult } from './fan_out';
-import { getLogger } from '../../logging/logger';
+import { Agent } from '../../agents/agent.js';
+import { AugmentedLLM, Message, CompletionOptions } from '../llm/augmented_llm.js';
+import { FanOutResult } from './fan_out.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('fan_in');
 

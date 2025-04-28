@@ -5,10 +5,10 @@
  * for a given request.
  */
 import { z } from 'zod';
-import { Agent } from '../../agents/agent';
-import { AugmentedLLM } from '../llm/augmented_llm';
-import { RouterBase, RoutingResult } from './router_base';
-import { getLogger } from '../../logging/logger';
+import { Agent } from '../../agents/agent.js';
+import { AugmentedLLM } from '../llm/augmented_llm.js';
+import { RouterBase, RoutingResult } from './router_base.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('router_llm');
 

@@ -11,10 +11,10 @@ import { ConfigDict } from 'pydantic';
 import { activity, ActivityOptions, defineQuery, defineSignal, defineUpdate, proxyActivities, RetryPolicy } from '@temporalio/workflow';
 import { Client as TemporalClient, Worker } from '@temporalio/client';
 
-import { Executor, ExecutorConfig, R } from './executor';
-import { BaseSignalHandler, Signal, SignalHandler, SignalRegistration, SignalValueT } from './workflow_signal';
-import { Context } from '../context';
-import { TemporalSettings } from '../config';
+import { Executor, ExecutorConfig, R } from './executor.js';
+import { BaseSignalHandler, Signal, SignalHandler, SignalRegistration, SignalValueT } from './workflow_signal.js';
+import { Context } from '../context.js';
+import { TemporalSettings } from '../config.js';
 
 class TemporalSignalHandler<T> extends BaseSignalHandler<T> {
   /**

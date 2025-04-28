@@ -2,7 +2,7 @@
  * Command registry for MCP Agent CLI
  */
 import { Command } from 'commander';
-import { configCommand } from './config';
+import { configCommand } from './config.js';
 
 /**
  * Register all CLI commands with the program

@@ -2,8 +2,8 @@
  * Human input handler for MCP Agent
  */
 import * as readline from 'readline';
-import { HumanInputCallback, HumanInputRequest, HumanInputResponse } from '../types';
-import { getLogger } from '../logging/logger';
+import { HumanInputCallback, HumanInputRequest, HumanInputResponse } from '../types.js';
+import { getLogger } from '../logging/logger.js';
 
 const logger = getLogger('human_input');
 

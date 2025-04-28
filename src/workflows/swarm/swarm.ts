@@ -3,10 +3,10 @@
  * 
  * MCP version of the OpenAI Swarm class (https://github.com/openai/swarm)
  */
-import { Agent } from '../../agents/agent';
-import { AugmentedLLM, Message, CompletionOptions } from '../llm/augmented_llm';
-import { Context } from '../../context';
-import { getLogger } from '../../logging/logger';
+import { Agent } from '../../agents/agent.js';
+import { AugmentedLLM, Message, CompletionOptions } from '../llm/augmented_llm.js';
+import { Context } from '../../context.js';
+import { getLogger } from '../../logging/logger.js';
 
 const logger = getLogger('swarm');
 

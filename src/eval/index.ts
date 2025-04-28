@@ -2,8 +2,8 @@
  * Evaluation module for MCP Agent
  */
 
-import { ContextDependent } from '../context_dependent';
-import { Context } from '../context';
+import { ContextDependent } from '../context_dependent.js';
+import { Context } from '../context.js';
 
 export class Evaluator extends ContextDependent {
   /**

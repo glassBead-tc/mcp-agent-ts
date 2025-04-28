@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { z } from 'zod';
 import YAML from 'yaml';
-import { ExecutionEngine, LogLevel } from '../types';
+import { ExecutionEngine, LogLevel } from '../types.js';
 
 // Define configuration schema using Zod
 export const LoggerConfigSchema = z.object({

@@ -1,14 +1,14 @@
 /**
  * Main application class for MCP Agent
  */
-import { Context, initializeContext, cleanupContext } from './context';
-import { Settings, getSettings } from './config';
-import { getLogger } from './logging/logger';
-import { HumanInputCallback } from './types';
-import { consoleInputCallback } from './human_input/handler';
-import { SignalWaitCallback, consoleSignalNotification } from './executor/workflow_signal';
-import { ModelSelector } from './workflows/llm/model_selector';
-import { Workflow } from './executor/workflow';
+import { Context, initializeContext, cleanupContext } from './context.js';
+import { Settings, getSettings } from './config.js';
+import { getLogger } from './logging/logger.js';
+import { HumanInputCallback } from './types.js';
+import { consoleInputCallback } from './human_input/handler.js';
+import { SignalWaitCallback, consoleSignalNotification } from './executor/workflow_signal.js';
+import { ModelSelector } from './workflows/llm/model_selector.js';
+import { Workflow } from './executor/workflow.js';
 
 const logger = getLogger('app');
 

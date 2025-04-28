@@ -3,65 +3,65 @@
  */
 
 // Export core components
-export { MCPApp } from "./app";
-export { Agent } from "./agents/agent";
+export { MCPApp } from "./app.js";
+export { Agent } from "./agents/agent.js";
 export {
   Context,
   initializeContext,
   cleanupContext,
   getCurrentContext,
-} from "./context";
-export { getSettings, updateSettings } from "./config";
-export { getLogger } from "./logging/logger";
-export { ContextDependent } from "./context_dependent";
+} from "./context.js";
+export { getSettings, updateSettings } from "./config.js";
+export { getLogger } from "./logging/logger.js";
+export { ContextDependent } from "./context_dependent.js";
 
 // Export core exceptions and decorator app
-export * from "./core";
+export * from "./core.js";
 
 // Export telemetry
-export * from "./telemetry";
+export * from "./telemetry.js";
 
 // Export console utilities
-export * from "./console";
+export * from "./console.js";
 
 // Export event progress
-export * from "./event_progress";
+export * from "./event_progress.js";
 
 // Export types
-export * from "./types";
+export * from "./types.js";
 
 // Export executor components
-export * from "./executor";
+export * from "./executor.js";
 
 // Export MCP components
-export { MCPConnectionManager } from "./mcp/mcp_connection_manager";
-export { MCPAggregator } from "./mcp/mcp_aggregator";
-export { ServerRegistry } from "./mcp/server_registry";
-export { genClient, connect, disconnect } from "./mcp/gen_client";
-export { MCPAgentClientSession } from "./mcp/mcp_agent_client_session";
-export { websocketClient } from "./mcp/websocket";
-export { stdioClientWithRichStderr } from "./mcp/stdio";
-export { app as mcpAgentServer, run as runMcpAgentServer, provideUserInput } from "./mcp/mcp_agent_server";
-export { ServerRegistry as MCPServerRegistry, InitHookCallable } from "./mcp_server_registry";
+export { MCPConnectionManager } from "./mcp/mcp_connection_manager.js";
+export { MCPAggregator } from "./mcp/mcp_aggregator.js";
+export { ServerRegistry } from "./mcp/server_registry.js";
+export { genClient, connect, disconnect } from "./mcp/gen_client.js";
+export { MCPAgentClientSession } from "./mcp/mcp_agent_client_session.js";
+export { websocketClient } from "./mcp/websocket.js";
+export { stdioClientWithRichStderr } from "./mcp/stdio.js";
+export { app as mcpAgentServer, run as runMcpAgentServer, provideUserInput } from "./mcp/mcp_agent_server.js";
+export { ServerRegistry as MCPServerRegistry, InitHookCallable } from "./mcp_server_registry.js";
 
 // Export workflow components
-export * from "./workflows";
+export * from "./workflows.js";
 
 // Export human input components
-export { consoleInputCallback } from "./human_input/handler";
-export * from "./human_input/types";
+export { consoleInputCallback } from "./human_input/handler.js";
+export * from "./human_input/types.js";
 
 // Export logging components
-export { telemetry, MCPRequestTrace } from "./logging/tracing";
-export { RichProgressDisplay } from "./logging/rich_progress";
+export { telemetry, MCPRequestTrace } from "./logging/tracing.js";
+export { RichProgressDisplay } from "./logging/rich_progress.js";
 
 // Export progress display
-export { ProgressDisplay } from "./progress_display";
+export { ProgressDisplay } from "./progress_display.js";
 
 // Export evaluation module
-export * from "./eval";
+export * from "./eval.js";
 
 // Export CLI
-export { runCLI, createProgram } from "./cli/main";
-export { Application } from "./cli/terminal";
-export { configCommand } from "./cli/commands/config";
+export { runCLI, createProgram } from "./cli/main.js";
+export { Application } from "./cli/terminal.js";
+export { configCommand } from "./cli/commands/config.js";
