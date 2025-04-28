@@ -13,6 +13,19 @@ export {
 } from "./context";
 export { getSettings, updateSettings } from "./config";
 export { getLogger } from "./logging/logger";
+export { ContextDependent } from "./context_dependent";
+
+// Export core exceptions and decorator app
+export * from "./core";
+
+// Export telemetry
+export * from "./telemetry";
+
+// Export console utilities
+export * from "./console";
+
+// Export event progress
+export * from "./event_progress";
 
 // Export types
 export * from "./types";

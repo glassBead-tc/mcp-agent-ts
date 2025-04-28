@@ -6,3 +6,7 @@ export { AugmentedLLM, Message, CompletionOptions, CompletionResult } from './au
 export { ModelSelector } from './model_selector';
 export { OpenAIAugmentedLLM } from './augmented_llm_openai';
 export { AnthropicAugmentedLLM } from './augmented_llm_anthropic';
+export { AzureAugmentedLLM } from './augmented_llm_azure';
+export { BedrockAugmentedLLM } from './augmented_llm_bedrock';
+export { GoogleAugmentedLLM } from './augmented_llm_google';
+export * from './llm_selector';
