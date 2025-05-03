@@ -169,3 +169,6 @@ examples/**/*.secrets.yaml
 
 # File generated from promptify script (to create an LLM-friendly prompt for the repo)
 project_contents.md
+node_modules
+
+**/.claude/settings.local.json

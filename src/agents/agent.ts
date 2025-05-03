@@ -16,6 +16,8 @@ import {
   HUMAN_INPUT_SIGNAL_NAME,
   HUMAN_INPUT_TOOL_NAME,
 } from "../types";
+import { MCPClient } from "@modelcontextprotocol/sdk";
+import { MCPConnectionManager } from "../mcp/mcp_connection_manager.js";
 
 const logger = getLogger("agent");
 
@@ -46,6 +48,9 @@ export class Agent extends MCPAggregator {
   functions: Function[];
   private functionToolMap: Map<string, FunctionTool> = new Map();
   humanInputCallback?: HumanInputCallback;
+  private mcpClients: Map<string, MCPClient> = new Map();
+  private tools: Tool[] = [];
+  private initialized = false;
 
   /**
    * Create a new agent
@@ -95,63 +100,160 @@ export class Agent extends MCPAggregator {
    *
    * @returns A promise that resolves when initialization is complete
    */
-  async initialize(): Promise<void> {
-    // Initialize connection manager
-    await super.initialize();
+  async initialize(connectionManager: MCPConnectionManager): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
 
-    // Register function tools
-    for (const fn of this.functions) {
-      const tool = this.createFunctionTool(fn);
-      this.functionToolMap.set(tool.name, tool);
+    logger.info(`Initializing agent: ${this.name}`);
+
+    try {
+      // Connect to all MCP servers
+      for (const serverName of this.serverNames) {
+        const client = await connectionManager.getServer(serverName);
+        this.mcpClients.set(serverName, client);
+      }
+
+      // Load tools from all servers
+      await this.loadTools();
+
+      // Add human input tool if callback provided
+      if (this.humanInputCallback) {
+        this.addHumanInputTool();
+      }
+
+      this.initialized = true;
+      logger.info(`Agent initialized: ${this.name}`);
+    } catch (error) {
+      logger.error(`Failed to initialize agent: ${this.name}`, { error });
+      throw error;
     }
   }
 
   /**
-   * Create a function tool from a function
-   *
-   * @param fn - The function to convert to a tool
-   * @returns The function tool
-   * @private
+   * Load tools from all MCP servers
    */
-  private createFunctionTool(fn: Function): FunctionTool {
-    // Get function name and description
-    const name = fn.name;
-    const description = fn.description || `Function ${name}`;
-
-    // Get function parameters
-    // This is a simplified version - in a real implementation, we would
-    // use reflection or decorators to get parameter information
-    const parameters = {
-      type: "object",
-      properties: {},
-      required: [],
-    };
-
-    // Create tool
-    return {
-      name,
-      description,
-      parameters,
-      run: async (args: Record<string, any>) => {
+  private async loadTools(): Promise<void> {
+    const toolsPromises = Array.from(this.mcpClients.entries()).map(
+      async ([serverName, client]) => {
         try {
-          return await fn(args);
+          const tools = await client.listTools();
+
+          // Add server name prefix to tool names to avoid conflicts
+          const prefixedTools = tools.map((tool) => ({
+            ...tool,
+            name: `${serverName}-${tool.name}`,
+          }));
+
+          return prefixedTools;
         } catch (error) {
-          logger.error(`Error running function ${name}`, { error });
-          throw error;
+          logger.error(`Failed to list tools for server: ${serverName}`, {
+            error,
+          });
+          return [];
         }
-      },
-    };
+      }
+    );
+
+    const toolsArrays = await Promise.all(toolsPromises);
+    this.tools = toolsArrays.flat();
+
+    logger.debug(`Loaded ${this.tools.length} tools for agent: ${this.name}`);
   }
 
   /**
-   * Attach an LLM to the agent
-   *
-   * @param llmFactory - Factory function that creates an LLM for this agent
-   * @returns The created LLM
-   * @template T - The type of LLM to create
+   * Add a human input tool
    */
-  async attachLLM<T>(llmFactory: (agent: Agent) => Promise<T>): Promise<T> {
-    return llmFactory(this);
+  private addHumanInputTool(): void {
+    this.tools.push({
+      name: "__human_input__",
+      description: "Request input from a human user",
+      parameters: {
+        prompt: {
+          type: "string",
+          description: "The prompt to show to the human",
+        },
+      },
+      returns: {
+        response: {
+          type: "string",
+          description: "The response from the human",
+        },
+      },
+    });
+  }
+
+  /**
+   * Get the agent's name
+   */
+  getName(): string {
+    return this.name;
+  }
+
+  /**
+   * Get the agent's instruction
+   */
+  getInstruction(): string {
+    return this.instruction;
+  }
+
+  /**
+   * Get the agent's server names
+   */
+  getServerNames(): string[] {
+    return this.serverNames;
+  }
+
+  /**
+   * Get all tools available to the agent
+   */
+  getTools(): Tool[] {
+    return this.tools;
+  }
+
+  /**
+   * Call a tool on an MCP server
+   * @param toolName Tool name
+   * @param args Tool arguments
+   * @returns Tool result
+   */
+  async callTool(toolName: string, args: Record<string, any>): Promise<any> {
+    // Handle human input tool
+    if (toolName === "__human_input__" && this.humanInputCallback) {
+      return this.humanInputCallback(args.prompt);
+    }
+
+    // Parse server and tool name
+    const [serverName, actualToolName] = toolName.split("-");
+
+    const client = this.mcpClients.get(serverName);
+    if (!client) {
+      throw new Error(`No MCP client for server: ${serverName}`);
+    }
+
+    try {
+      // Call the tool on the MCP server
+      const result = await client.callTool(actualToolName, args);
+      return result;
+    } catch (error) {
+      logger.error(`Error calling tool ${toolName}`, { error, args });
+      throw error;
+    }
+  }
+
+  /**
+   * Attach an LLM to this agent
+   * @param llmFactory LLM factory
+   * @param opts LLM options
+   * @returns LLM instance
+   */
+  async attachLLM<T>(
+    llmFactory: (agent: Agent, opts?: any) => Promise<T>,
+    opts?: any
+  ): Promise<T> {
+    // Create LLM instance
+    const llm = await llmFactory(this, opts);
+    return llm;
   }
 
   /**
@@ -249,7 +351,7 @@ export class Agent extends MCPAggregator {
   async listTools(): Promise<{ tools: Tool[] }> {
     // If not initialized, initialize first
     if (!this.initialized) {
-      await this.initialize();
+      await this.initialize(this.context.mcpConnectionManager);
     }
 
     // Get tools from MCP servers
@@ -301,127 +403,5 @@ export class Agent extends MCPAggregator {
     }
 
     return result;
-  }
-
-  /**
-   * Call a tool
-   *
-   * This method calls a tool by name with the given arguments.
-   * The tool can be from an MCP server, a function tool, or the human input tool.
-   *
-   * @param name - The name of the tool to call
-   * @param arguments_ - The arguments to pass to the tool
-   * @returns A promise that resolves with the result of the tool call
-   */
-  async callTool(
-    name: string,
-    arguments_: Record<string, any> | null = null
-  ): Promise<{
-    isError?: boolean;
-    content: { type: string; text: string }[];
-  }> {
-    // Handle human input tool
-    if (name === HUMAN_INPUT_TOOL_NAME) {
-      return this.callHumanInputTool(arguments_);
-    }
-
-    // Handle function tools
-    if (this.functionToolMap.has(name)) {
-      const tool = this.functionToolMap.get(name)!;
-      try {
-        const result = await tool.run(arguments_ || {});
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                typeof result === "string" ? result : JSON.stringify(result),
-            },
-          ],
-        };
-      } catch (error) {
-        logger.error(`Error calling function tool ${name}`, { error });
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: `Error calling function ${name}: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            },
-          ],
-        };
-      }
-    }
-
-    // Handle MCP server tools
-    return super.callTool(name, arguments_);
-  }
-
-  /**
-   * Call the human input tool
-   *
-   * This method handles calls to the human input tool.
-   *
-   * @param arguments_ - The arguments for the human input tool
-   * @returns A promise that resolves with the result of the tool call
-   * @private
-   */
-  private async callHumanInputTool(
-    arguments_: Record<string, any> | null = null
-  ): Promise<{
-    isError?: boolean;
-    content: { type: string; text: string }[];
-  }> {
-    try {
-      if (!arguments_ || !arguments_.request) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: "Error: Missing request parameter",
-            },
-          ],
-        };
-      }
-
-      const request: HumanInputRequest = arguments_.request;
-      const result = await this.requestHumanInput(request);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Human response: ${JSON.stringify(result)}`,
-          },
-        ],
-      };
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("Timeout")) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: `Error: Human input request timed out: ${error.message}`,
-            },
-          ],
-        };
-      }
-
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: `Error requesting human input: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          },
-        ],
-      };
-    }
   }
 }

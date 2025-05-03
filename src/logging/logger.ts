@@ -1,121 +1,114 @@
 /**
- * Logging system for MCP Agent
+ * Simple logging module for MCP Agent.
+ * This module is intended to be used for logging within the MCP Agent itself.
+ * For logging in user code, use the `Logger` class from the `mcp_agent` module.
  */
-import pino from 'pino';
-import { LogLevel } from '../types';
-import { getSettings, LoggerConfig } from '../config';
 
-// Map our log levels to pino log levels
-const LOG_LEVEL_MAP: Record<LogLevel, string> = {
-  [LogLevel.DEBUG]: 'debug',
-  [LogLevel.INFO]: 'info',
-  [LogLevel.WARNING]: 'warn',
-  [LogLevel.ERROR]: 'error',
-  [LogLevel.CRITICAL]: 'fatal',
-};
+export enum LogLevel {
+  TRACE = "trace",
+  DEBUG = "debug",
+  INFO = "info",
+  WARN = "warn",
+  ERROR = "error",
+  FATAL = "fatal",
+}
 
-// Global logger instance
-let _logger: pino.Logger | null = null;
-
-/**
- * Configure the logger based on settings
- */
-export function configureLogger(config?: LoggerConfig): pino.Logger {
-  const settings = config || getSettings().logger;
-  
-  const options: pino.LoggerOptions = {
-    level: LOG_LEVEL_MAP[settings.level] || 'info',
-  };
-
-  // Configure transport based on settings
-  if (settings.format === 'pretty') {
-    options.transport = {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-      },
-    };
-  }
-
-  // Create the logger
-  const logger = pino(options);
-  
-  // Store as global instance
-  _logger = logger;
-  
-  return logger;
+export interface LoggerConfig {
+  level?: LogLevel;
 }
 
 /**
- * Get a logger instance for a specific module
+ * Simple Logger class that uses console for logging
  */
-export function getLogger(name: string): pino.Logger {
-  if (!_logger) {
-    _logger = configureLogger();
-  }
-  
-  return _logger.child({ name });
-}
+export class Logger {
+  private name: string;
+  private level: LogLevel;
 
-/**
- * Logging configuration class
- */
-export class LoggingConfig {
-  private static _instance: LoggingConfig;
-  private _logger: pino.Logger;
-
-  private constructor() {
-    this._logger = configureLogger();
+  constructor(name: string, config: LoggerConfig = {}) {
+    this.name = name;
+    this.level = config.level || LogLevel.INFO;
   }
 
-  /**
-   * Get the singleton instance
-   */
-  public static getInstance(): LoggingConfig {
-    if (!LoggingConfig._instance) {
-      LoggingConfig._instance = new LoggingConfig();
+  private formatMessage(
+    level: string,
+    message: string,
+    data?: Record<string, any>
+  ): string {
+    const timestamp = new Date().toISOString();
+    let formattedMessage = `[${timestamp}] [${level.toUpperCase()}] [${
+      this.name
+    }] ${message}`;
+
+    if (data && Object.keys(data).length > 0) {
+      formattedMessage += " " + JSON.stringify(data);
     }
-    return LoggingConfig._instance;
+
+    return formattedMessage;
   }
 
-  /**
-   * Configure the logging system
-   */
-  public static async configure(options: {
-    level?: LogLevel;
-    format?: 'json' | 'pretty';
-    transport?: any;
-    batch_size?: number;
-    flush_interval?: number;
-  }): Promise<void> {
-    const instance = LoggingConfig.getInstance();
-    
-    // Update logger configuration
-    const config: LoggerConfig = {
-      level: options.level || getSettings().logger.level,
-      format: options.format || getSettings().logger.format,
-      output: 'console',
-      batch_size: options.batch_size || getSettings().logger.batch_size,
-      flush_interval: options.flush_interval || getSettings().logger.flush_interval,
+  private shouldLog(level: LogLevel): boolean {
+    const levels = {
+      [LogLevel.TRACE]: 0,
+      [LogLevel.DEBUG]: 1,
+      [LogLevel.INFO]: 2,
+      [LogLevel.WARN]: 3,
+      [LogLevel.ERROR]: 4,
+      [LogLevel.FATAL]: 5,
     };
-    
-    instance._logger = configureLogger(config);
-    _logger = instance._logger;
+
+    return levels[level] >= levels[this.level];
   }
 
-  /**
-   * Shutdown the logging system
-   */
-  public static async shutdown(): Promise<void> {
-    // Flush any pending logs
-    await new Promise<void>((resolve) => {
-      if (_logger) {
-        _logger.flush(() => {
-          resolve();
-        });
-      } else {
-        resolve();
-      }
-    });
+  trace(message: string, data?: Record<string, any>): void {
+    if (this.shouldLog(LogLevel.TRACE)) {
+      console.debug(this.formatMessage("trace", message, data));
+    }
   }
+
+  debug(message: string, data?: Record<string, any>): void {
+    if (this.shouldLog(LogLevel.DEBUG)) {
+      console.debug(this.formatMessage("debug", message, data));
+    }
+  }
+
+  info(message: string, data?: Record<string, any>): void {
+    if (this.shouldLog(LogLevel.INFO)) {
+      console.info(this.formatMessage("info", message, data));
+    }
+  }
+
+  warn(message: string, data?: Record<string, any>): void {
+    if (this.shouldLog(LogLevel.WARN)) {
+      console.warn(this.formatMessage("warn", message, data));
+    }
+  }
+
+  error(message: string, data?: Record<string, any>): void {
+    if (this.shouldLog(LogLevel.ERROR)) {
+      console.error(this.formatMessage("error", message, data));
+    }
+  }
+
+  fatal(message: string, data?: Record<string, any>): void {
+    if (this.shouldLog(LogLevel.FATAL)) {
+      console.error(this.formatMessage("fatal", message, data));
+    }
+  }
+}
+
+// Logger instances cache
+const loggers: Map<string, Logger> = new Map();
+
+/**
+ * Get a logger instance
+ * @param name Logger name
+ * @returns Logger instance
+ */
+export function getLogger(name: string): Logger {
+  if (!loggers.has(name)) {
+    // Create new logger with default config
+    loggers.set(name, new Logger(name));
+  }
+
+  return loggers.get(name)!;
 }

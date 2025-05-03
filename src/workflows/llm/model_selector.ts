@@ -1,129 +1,169 @@
 /**
- * Model selector for MCP Agent
+ * Model selector for LLM workflows
+ * Provides model selection capabilities for LLM workflows
  */
-import { getLogger } from '../../logging/logger';
+import { getLogger } from "../../logging/logger.js";
 
-const logger = getLogger('model_selector');
+const logger = getLogger("model-selector");
 
 /**
- * Model configuration
+ * Model configuration interface
  */
 export interface ModelConfig {
-  name: string;
   provider: string;
-  api_key?: string;
-  base_url?: string;
-  options?: Record<string, any>;
-  [key: string]: any;
+  model: string;
+  parameters?: Record<string, any>;
+  priority?: number;
 }
 
 /**
- * Model selector for selecting LLM models
+ * Model selector interface
  */
-export class ModelSelector {
-  private models: Map<string, ModelConfig> = new Map();
-  private defaultModel?: string;
-  
-  constructor(
-    models: Record<string, ModelConfig> = {},
-    defaultModel?: string
-  ) {
-    // Register models
-    for (const [name, config] of Object.entries(models)) {
-      this.registerModel(name, config);
-    }
-    
-    // Set default model
-    if (defaultModel && this.models.has(defaultModel)) {
-      this.defaultModel = defaultModel;
-    } else if (this.models.size > 0) {
-      this.defaultModel = Array.from(this.models.keys())[0];
-    }
-  }
-  
+export interface ModelSelector {
   /**
-   * Register a model
+   * Get the best model for a given task
+   * @param task Task name or description
+   * @param options Selection options
+   * @returns The best model configuration for the task
    */
-  registerModel(name: string, config: ModelConfig): void {
-    logger.debug(`Registering model ${name}`, { config });
-    this.models.set(name, config);
-    
-    // Set as default if no default is set
-    if (!this.defaultModel) {
-      this.defaultModel = name;
-    }
-  }
-  
+  selectModel(task: string, options?: ModelSelectionOptions): ModelConfig;
+
   /**
    * Get a model by name
+   * @param name Model name (provider/model)
+   * @returns Model configuration
    */
-  getModel(name?: string): ModelConfig | undefined {
-    if (!name) {
-      if (!this.defaultModel) {
-        return undefined;
-      }
-      return this.models.get(this.defaultModel);
-    }
-    
+  getModel(name: string): ModelConfig | undefined;
+
+  /**
+   * Get all available models
+   * @returns All model configurations
+   */
+  getModels(): ModelConfig[];
+
+  /**
+   * Add a model configuration
+   * @param model Model configuration
+   */
+  addModel(model: ModelConfig): void;
+}
+
+/**
+ * Model selection options
+ */
+export interface ModelSelectionOptions {
+  provider?: string;
+  minTokens?: number;
+  maxTokens?: number;
+  features?: string[];
+}
+
+/**
+ * Default model selector implementation
+ */
+export class DefaultModelSelector implements ModelSelector {
+  private models: Map<string, ModelConfig> = new Map();
+
+  constructor(initialModels: ModelConfig[] = []) {
+    initialModels.forEach((model) => this.addModel(model));
+  }
+
+  /**
+   * Add a model configuration
+   * @param model Model configuration
+   */
+  addModel(model: ModelConfig): void {
+    const key = `${model.provider}/${model.model}`;
+    this.models.set(key, model);
+    logger.debug(`Added model: ${key}`);
+  }
+
+  /**
+   * Get a model by name
+   * @param name Model name (provider/model)
+   * @returns Model configuration
+   */
+  getModel(name: string): ModelConfig | undefined {
     return this.models.get(name);
   }
-  
+
   /**
-   * List all registered models
+   * Get all available models
+   * @returns All model configurations
    */
-  listModels(): { name: string; config: ModelConfig }[] {
-    return Array.from(this.models.entries()).map(([name, config]) => ({
-      name,
-      config,
-    }));
+  getModels(): ModelConfig[] {
+    return Array.from(this.models.values());
   }
-  
+
   /**
-   * Set the default model
+   * Select the best model for a task
+   * @param task Task name or description
+   * @param options Selection options
+   * @returns The best model configuration for the task
    */
-  setDefaultModel(name: string): void {
-    if (!this.models.has(name)) {
-      throw new Error(`Model ${name} not found`);
-    }
-    
-    this.defaultModel = name;
-  }
-  
-  /**
-   * Get the default model
-   */
-  getDefaultModel(): ModelConfig | undefined {
-    if (!this.defaultModel) {
-      return undefined;
-    }
-    
-    return this.models.get(this.defaultModel);
-  }
-  
-  /**
-   * Select a model based on criteria
-   */
-  selectModel(criteria: {
-    provider?: string;
-    minTokens?: number;
-    maxPrice?: number;
-    [key: string]: any;
-  } = {}): ModelConfig | undefined {
-    // This is a simplified implementation - in a real implementation,
-    // we would use more sophisticated criteria matching
-    
-    // If provider is specified, filter by provider
-    if (criteria.provider) {
-      const matchingModels = Array.from(this.models.values()).filter(
-        model => model.provider === criteria.provider
+  selectModel(task: string, options: ModelSelectionOptions = {}): ModelConfig {
+    logger.debug(`Selecting model for task: ${task}`, options);
+
+    // Filter models by provider if specified
+    let candidates = this.getModels();
+    if (options.provider) {
+      candidates = candidates.filter(
+        (model) => model.provider === options.provider
       );
-      
-      if (matchingModels.length > 0) {
-        return matchingModels[0];
-      }
     }
-    
-    // Fall back to default model
-    return this.getDefaultModel();
+
+    // TODO: Apply more sophisticated filtering/selection logic based on task and options
+
+    // Sort by priority (higher is better)
+    candidates.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+    if (candidates.length === 0) {
+      throw new Error(`No suitable model found for task: ${task}`);
+    }
+
+    const selected = candidates[0];
+    logger.debug(
+      `Selected model: ${selected.provider}/${selected.model} for task: ${task}`
+    );
+
+    return selected;
+  }
+
+  /**
+   * Create a selector with default models
+   * @returns A model selector with default models
+   */
+  static createWithDefaults(): ModelSelector {
+    const selector = new DefaultModelSelector([
+      {
+        provider: "openai",
+        model: "gpt-4o",
+        priority: 100,
+        parameters: {
+          max_tokens: 4096,
+          temperature: 0.7,
+        },
+      },
+      {
+        provider: "openai",
+        model: "gpt-3.5-turbo",
+        priority: 50,
+        parameters: {
+          max_tokens: 2048,
+          temperature: 0.7,
+        },
+      },
+      {
+        provider: "anthropic",
+        model: "claude-3.5-haiku",
+        priority: 90,
+        parameters: {
+          max_tokens: 4096,
+          temperature: 0.7,
+        },
+      },
+    ]);
+
+    return selector;
   }
 }

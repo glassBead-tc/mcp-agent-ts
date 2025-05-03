@@ -1,80 +1,92 @@
 /**
- * MCP server registry for MCP Agent
+ * Server registry for MCP Agent
+ * Manages MCP server configurations and instances
  */
-import { Settings } from '../config';
-import { getLogger } from '../logging/logger';
+import { getLogger } from "../logging/logger.js";
+import { ServerConfig } from "../config.js";
 
-const logger = getLogger('server_registry');
+const logger = getLogger("server-registry");
 
 /**
- * MCP server configuration
- */
-export interface MCPServerConfig {
-  url?: string;
-  type?: string;
-  api_key?: string;
-  model?: string;
-  options?: Record<string, any>;
-  [key: string]: any;
-}
-
-/**
- * MCP server registry for managing MCP servers
+ * Server registry class
+ * Manages the MCP servers available to the agent
  */
 export class ServerRegistry {
-  private servers: Map<string, MCPServerConfig> = new Map();
-  
-  constructor(private config: Settings) {
-    this.loadServersFromConfig();
-  }
-  
+  private servers: Map<string, ServerConfig> = new Map();
+
   /**
-   * Load servers from configuration
+   * Create a new server registry
+   * @param initialServers Initial server configurations
    */
-  private loadServersFromConfig(): void {
-    const serverConfigs = this.config.mcp_servers || {};
-    
-    for (const [name, config] of Object.entries(serverConfigs)) {
-      this.registerServer(name, config as MCPServerConfig);
-    }
+  constructor(initialServers: Record<string, ServerConfig> = {}) {
+    // Add initial servers
+    Object.entries(initialServers).forEach(([name, config]) => {
+      this.addServer(name, config);
+    });
   }
-  
+
   /**
-   * Register a server
+   * Add a server to the registry
+   * @param name Server name
+   * @param config Server configuration
    */
-  registerServer(name: string, config: MCPServerConfig): void {
-    logger.debug(`Registering MCP server ${name}`, { config });
+  addServer(name: string, config: ServerConfig): void {
     this.servers.set(name, config);
+    logger.debug(`Added server: ${name}`, { config });
   }
-  
+
   /**
-   * Get a server by name
+   * Get a server configuration by name
+   * @param name Server name
+   * @returns Server configuration or undefined if not found
    */
-  getServer(name: string): MCPServerConfig | undefined {
+  getServer(name: string): ServerConfig | undefined {
     return this.servers.get(name);
   }
-  
+
   /**
-   * List all registered servers
+   * Remove a server from the registry
+   * @param name Server name
+   * @returns True if the server was removed, false otherwise
    */
-  listServers(): { name: string; config: MCPServerConfig }[] {
-    return Array.from(this.servers.entries()).map(([name, config]) => ({
-      name,
-      config,
-    }));
+  removeServer(name: string): boolean {
+    return this.servers.delete(name);
   }
-  
+
   /**
-   * Check if a server exists
+   * Check if a server exists in the registry
+   * @param name Server name
+   * @returns True if the server exists, false otherwise
    */
   hasServer(name: string): boolean {
     return this.servers.has(name);
   }
-  
+
   /**
-   * Remove a server
+   * Get all server names
+   * @returns Array of server names
    */
-  removeServer(name: string): boolean {
-    return this.servers.delete(name);
+  getServerNames(): string[] {
+    return Array.from(this.servers.keys());
+  }
+
+  /**
+   * Get all server configurations
+   * @returns Record of server configurations
+   */
+  getServers(): Record<string, ServerConfig> {
+    const result: Record<string, ServerConfig> = {};
+    this.servers.forEach((config, name) => {
+      result[name] = config;
+    });
+    return result;
+  }
+
+  /**
+   * Get the number of registered servers
+   * @returns Number of servers
+   */
+  size(): number {
+    return this.servers.size;
   }
 }

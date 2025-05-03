@@ -4,15 +4,16 @@
  * This example demonstrates how to use the Orchestrator workflow to grade a student's short story
  * using multiple specialized agents.
  */
-import * as fs from 'fs';
 import * as path from 'path';
-import { 
-  MCPApp, 
-  Agent, 
-  OpenAIAugmentedLLM,
-  AnthropicAugmentedLLM,
-  Orchestrator
-} from '../../src';
+import * as fs from 'fs';
+import { MCPApp } from '../../src/app';
+import { Agent } from '../../src/agents/agent';
+import { OpenAIAugmentedLLM } from '../../src/workflows/llm/augmented_llm_openai';
+import { AnthropicAugmentedLLM } from '../../src/workflows/llm/augmented_llm_anthropic';
+import { Orchestrator } from '../../src/workflows/orchestrator/orchestrator';
+
+// The orchestrator is a high-level abstraction that allows you to generate dynamic plans
+// and execute them using multiple agents and servers.
 
 /**
  * Example function to read a file
@@ -116,64 +117,72 @@ async function fetchUrl(url: string): Promise<string> {
   return `Mock content for ${url}`;
 }
 
-/**
- * Main function
- */
-async function main() {
-  // Create app
-  const app = new MCPApp({
-    name: 'assignment-grader-orchestrator',
-  });
-  
-  // Run the app
-  await app.run(async (app) => {
-    console.log('Creating agents...');
+async function exampleUsage() {
+  try {
+    // Create and initialize app
+    const app = new MCPApp({ name: "assignment_grader_orchestrator" });
+    await app.initialize();
+    
+    const logger = app.context.logger;
+    const context = app.context;
+    
+    logger.info("Current config:", { data: context.config });
+    
+    // Add the current directory to the filesystem server's args
+    if (context.config.mcp?.servers?.filesystem?.args) {
+      context.config.mcp.servers.filesystem.args.push(process.cwd());
+    }
     
     // Create specialized agents
     const finderAgent = new Agent({
-      name: 'finder',
+      name: "finder",
       instruction: `You are an agent with access to the filesystem, 
       as well as the ability to fetch URLs. Your job is to identify 
       the closest match to a user's request, make the appropriate tool calls, 
       and return the URI and CONTENTS of the closest match.`,
+      serverNames: ["fetch", "filesystem"],
       functions: [readFile, fetchUrl],
-      context: app.context,
+      context
     });
     
     const writerAgent = new Agent({
-      name: 'writer',
+      name: "writer",
       instruction: `You are an agent that can write to the filesystem.
       You are tasked with taking the user's input, addressing it, and 
       writing the result to disk in the appropriate location.`,
+      serverNames: ["filesystem"],
       functions: [writeFile],
-      context: app.context,
+      context
     });
     
     const proofreaderAgent = new Agent({
-      name: 'proofreader',
+      name: "proofreader",
       instruction: `Review the short story for grammar, spelling, and punctuation errors.
       Identify any awkward phrasing or structural issues that could improve clarity. 
       Provide detailed feedback on corrections.`,
+      serverNames: ["fetch"],
       functions: [fetchUrl],
-      context: app.context,
+      context
     });
     
     const factCheckerAgent = new Agent({
-      name: 'fact_checker',
+      name: "fact_checker",
       instruction: `Verify the factual consistency within the story. Identify any contradictions,
       logical inconsistencies, or inaccuracies in the plot, character actions, or setting. 
       Highlight potential issues with reasoning or coherence.`,
+      serverNames: ["fetch"],
       functions: [fetchUrl],
-      context: app.context,
+      context
     });
     
     const styleEnforcerAgent = new Agent({
-      name: 'style_enforcer',
+      name: "style_enforcer",
       instruction: `Analyze the story for adherence to style guidelines.
       Evaluate the narrative flow, clarity of expression, and tone. Suggest improvements to 
       enhance storytelling, readability, and engagement.`,
+      serverNames: ["fetch"],
       functions: [fetchUrl],
-      context: app.context,
+      context
     });
     
     // Initialize all agents
@@ -182,23 +191,8 @@ async function main() {
       writerAgent.initialize(),
       proofreaderAgent.initialize(),
       factCheckerAgent.initialize(),
-      styleEnforcerAgent.initialize(),
+      styleEnforcerAgent.initialize()
     ]);
-    
-    // Create LLM factory function
-    const llmFactory = async (agent: Agent) => {
-      if (agent.name === 'finder' || agent.name === 'writer') {
-        return new OpenAIAugmentedLLM({
-          agent,
-          model: 'gpt-4o',
-        });
-      } else {
-        return new AnthropicAugmentedLLM({
-          agent,
-          model: 'claude-3-opus-20240229',
-        });
-      }
-    };
     
     // Define the task
     const task = `Load the student's short story from short_story.md, 
@@ -208,10 +202,10 @@ async function main() {
     https://apastyle.apa.org/learn/quick-guide-on-references.
     Write the graded report to graded_report.md in the same directory as short_story.md`;
     
-    console.log('\n=== Running Orchestrator with Full Planning ===');
-    console.log('Task:', task);
+    console.log("\n=== Running Orchestrator with Full Planning ===");
+    console.log("Task:", task);
     
-    // Start time measurement for full planning
+    // Start time measurement
     const startTimeFull = Date.now();
     
     // Create orchestrator with full planning
@@ -221,14 +215,30 @@ async function main() {
         writerAgent,
         proofreaderAgent,
         factCheckerAgent,
-        styleEnforcerAgent,
+        styleEnforcerAgent
       ],
-      llmFactory,
-      planType: 'full',
+      llmFactory: async (agent) => {
+        if (agent.name === 'finder' || agent.name === 'writer') {
+          return new OpenAIAugmentedLLM({
+            agent,
+            model: context.config.openai?.default_model || 'gpt-4o',
+            apiKey: context.config.openai?.api_key,
+            baseUrl: context.config.openai?.base_url
+          });
+        } else {
+          return new AnthropicAugmentedLLM({
+            agent,
+            model: 'claude-3-opus-20240229',
+            apiKey: context.config.anthropic?.api_key,
+            baseUrl: context.config.anthropic?.base_url
+          });
+        }
+      },
+      planType: 'full'
     });
     
     // Run the orchestrator with full planning
-    const resultFull = await orchestratorFull.complete([
+    const resultFull = await orchestratorFull.runConversation([
       { role: 'user', content: task }
     ]);
     
@@ -237,11 +247,12 @@ async function main() {
     const executionTimeFull = (endTimeFull - startTimeFull) / 1000; // Convert to seconds
     
     console.log(`\nFull planning completed in ${executionTimeFull.toFixed(2)} seconds`);
+    const fullResult = resultFull[resultFull.length - 1].content;
     console.log('Result excerpt:');
-    console.log(resultFull.choices[0].message.content.substring(0, 300) + '...');
+    console.log(fullResult.substring(0, 300) + '...');
     
-    console.log('\n=== Running Orchestrator with Iterative Planning ===');
-    console.log('Task:', task);
+    console.log("\n=== Running Orchestrator with Iterative Planning ===");
+    console.log("Task:", task);
     
     // Start time measurement for iterative planning
     const startTimeIterative = Date.now();
@@ -253,14 +264,30 @@ async function main() {
         writerAgent,
         proofreaderAgent,
         factCheckerAgent,
-        styleEnforcerAgent,
+        styleEnforcerAgent
       ],
-      llmFactory,
-      planType: 'iterative',
+      llmFactory: async (agent) => {
+        if (agent.name === 'finder' || agent.name === 'writer') {
+          return new OpenAIAugmentedLLM({
+            agent,
+            model: context.config.openai?.default_model || 'gpt-4o',
+            apiKey: context.config.openai?.api_key,
+            baseUrl: context.config.openai?.base_url
+          });
+        } else {
+          return new AnthropicAugmentedLLM({
+            agent,
+            model: 'claude-3-opus-20240229',
+            apiKey: context.config.anthropic?.api_key,
+            baseUrl: context.config.anthropic?.base_url
+          });
+        }
+      },
+      planType: 'iterative'
     });
     
     // Run the orchestrator with iterative planning
-    const resultIterative = await orchestratorIterative.complete([
+    const resultIterative = await orchestratorIterative.runConversation([
       { role: 'user', content: task }
     ]);
     
@@ -269,8 +296,9 @@ async function main() {
     const executionTimeIterative = (endTimeIterative - startTimeIterative) / 1000; // Convert to seconds
     
     console.log(`\nIterative planning completed in ${executionTimeIterative.toFixed(2)} seconds`);
+    const iterativeResult = resultIterative[resultIterative.length - 1].content;
     console.log('Result excerpt:');
-    console.log(resultIterative.choices[0].message.content.substring(0, 300) + '...');
+    console.log(iterativeResult.substring(0, 300) + '...');
     
     // Compare the approaches
     console.log('\n=== Comparing Planning Approaches ===');
@@ -290,10 +318,23 @@ async function main() {
       writerAgent.shutdown(),
       proofreaderAgent.shutdown(),
       factCheckerAgent.shutdown(),
-      styleEnforcerAgent.shutdown(),
+      styleEnforcerAgent.shutdown()
     ]);
-  });
+  } finally {
+    // Shutdown app
+    await app.shutdown();
+  }
 }
 
 // Run the example
-main().catch(console.error);
+const startTime = Date.now();
+exampleUsage()
+  .catch(error => {
+    console.error("Error:", error);
+    process.exit(1);
+  })
+  .finally(() => {
+    const endTime = Date.now();
+    const totalTime = (endTime - startTime) / 1000;
+    console.log(`\nTotal run time: ${totalTime.toFixed(2)}s`);
+  });

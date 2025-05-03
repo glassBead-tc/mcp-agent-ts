@@ -1,156 +1,303 @@
 /**
- * MCP connection manager for MCP Agent
+ * MCP Connection Manager
+ * Manages connections to MCP servers
  */
-import { Client } from '@modelcontextprotocol/sdk/client';
-import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
-import { getLogger } from '../logging/logger';
-import { ServerRegistry, MCPServerConfig } from './server_registry';
-import { Context } from '../context';
+import { getLogger } from "../logging/logger.js";
+import { ServerRegistry } from "./server_registry.js";
+import { spawn, ChildProcess } from "child_process";
+// Import or mock MCPClient - using a simple interface for now
+// Will need to install @modelcontextprotocol/sdk if it's available
+interface MCPClient {
+  baseUrl: string;
+  // Add other properties/methods as needed
+}
 
-const logger = getLogger('mcp_connection_manager');
+const logger = getLogger("mcp-connection-manager");
 
 /**
- * MCP connection manager for managing connections to MCP servers
+ * Interface for a managed MCP server process
+ */
+interface ManagedMCPServer {
+  name: string;
+  process: ChildProcess;
+  client?: MCPClient;
+  url?: string;
+  status: "starting" | "running" | "stopping" | "stopped" | "error";
+  error?: Error;
+}
+
+/**
+ * MCP Connection Manager
+ * Manages connections to MCP servers
  */
 export class MCPConnectionManager {
-  private connections: Map<string, Client> = new Map();
-  private initialized = false;
-  
-  constructor(
-    protected context: Context,
-    protected serverNames: string[] = [],
-    protected connectionPersistence: boolean = true
-  ) {}
-  
+  private registry: ServerRegistry;
+  private servers: Map<string, ManagedMCPServer> = new Map();
+  private clients: Map<string, MCPClient> = new Map();
+
   /**
-   * Initialize the connection manager
+   * Create a new MCP connection manager
+   * @param registry Server registry
    */
-  async initialize(): Promise<void> {
-    if (this.initialized) {
+  constructor(registry: ServerRegistry) {
+    this.registry = registry;
+    logger.debug("MCP connection manager created");
+  }
+
+  /**
+   * Start an MCP server
+   * @param name Server name
+   * @returns Promise that resolves when the server is started
+   */
+  async startServer(name: string): Promise<void> {
+    // Check if server is already running
+    if (this.servers.has(name)) {
+      logger.debug(`Server already running: ${name}`);
       return;
     }
-    
-    logger.debug('Initializing MCP connection manager');
-    
-    // Load servers from registry
-    await this.loadServers();
-    
-    this.initialized = true;
-  }
-  
-  /**
-   * Load servers from registry
-   */
-  protected async loadServers(): Promise<void> {
-    const serverRegistry = this.context.serverRegistry;
-    
-    // If no server names specified, load all servers
-    if (this.serverNames.length === 0) {
-      this.serverNames = serverRegistry.listServers().map(server => server.name);
+
+    // Get server configuration
+    const config = this.registry.getServer(name);
+    if (!config) {
+      throw new Error(`Server not found in registry: ${name}`);
     }
-    
-    // Connect to each server
-    for (const serverName of this.serverNames) {
-      await this.connectToServer(serverName);
-    }
-  }
-  
-  /**
-   * Connect to a server
-   */
-  protected async connectToServer(serverName: string): Promise<Client | undefined> {
-    const serverRegistry = this.context.serverRegistry;
-    const serverConfig = serverRegistry.getServer(serverName);
-    
-    if (!serverConfig) {
-      logger.warn(`Server ${serverName} not found in registry`);
-      return undefined;
-    }
-    
+
+    logger.info(`Starting MCP server: ${name}`, {
+      command: config.command,
+      args: config.args,
+    });
+
     try {
-      logger.debug(`Connecting to MCP server ${serverName}`, { serverConfig });
-      
+      // Spawn server process
+      const serverProcess = spawn(config.command, config.args || [], {
+        env: {
+          ...process.env,
+          ...config.env,
+        },
+        cwd: config.cwd,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      // Create managed server entry
+      const server: ManagedMCPServer = {
+        name,
+        process: serverProcess,
+        status: "starting",
+      };
+
+      // Store server
+      this.servers.set(name, server);
+
+      // Set up event handlers
+      serverProcess.stdout.on("data", (data: Buffer) => {
+        const output = data.toString().trim();
+        logger.debug(`[${name}] ${output}`);
+      });
+
+      serverProcess.stderr.on("data", (data: Buffer) => {
+        const output = data.toString().trim();
+        logger.warn(`[${name}] ERROR: ${output}`);
+      });
+
+      serverProcess.on("error", (error: Error) => {
+        logger.error(`[${name}] Process error: ${error.message}`);
+        server.status = "error";
+        server.error = error;
+      });
+
+      serverProcess.on("exit", (code: number | null, signal: string | null) => {
+        logger.info(
+          `[${name}] Process exited with code ${code}, signal ${signal}`
+        );
+        server.status = "stopped";
+        this.servers.delete(name);
+      });
+
+      // TODO: Properly detect when server is ready
+      // For now, just wait a short time
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Update status
+      server.status = "running";
+      logger.info(`MCP server started: ${name}`);
+    } catch (error) {
+      logger.error(`Failed to start MCP server: ${name}`, { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Stop an MCP server
+   * @param name Server name
+   */
+  async stopServer(name: string): Promise<void> {
+    const server = this.servers.get(name);
+    if (!server) {
+      logger.debug(`Server not running: ${name}`);
+      return;
+    }
+
+    logger.info(`Stopping MCP server: ${name}`);
+    server.status = "stopping";
+
+    try {
+      // Close the client if it exists
+      if (server.client) {
+        await this.disconnectClient(name);
+      }
+
+      // Kill the process
+      server.process.kill();
+
+      // Wait for process to exit
+      await new Promise<void>((resolve) => {
+        server.process.on("exit", () => {
+          resolve();
+        });
+
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          if (server.process.killed) {
+            logger.warn(
+              `Server process did not exit gracefully: ${name}, forcing SIGKILL`
+            );
+            server.process.kill("SIGKILL");
+          }
+          resolve();
+        }, 5000);
+      });
+
+      // Remove from servers map
+      this.servers.delete(name);
+      logger.info(`MCP server stopped: ${name}`);
+    } catch (error) {
+      logger.error(`Error stopping MCP server: ${name}`, { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Connect to an MCP server
+   * @param name Server name or URL
+   * @returns MCP client
+   */
+  async connectClient(name: string): Promise<MCPClient> {
+    // Check if client already exists
+    if (this.clients.has(name)) {
+      return this.clients.get(name)!;
+    }
+
+    // Determine server URL
+    let url: string;
+    if (name.startsWith("http")) {
+      // Direct URL
+      url = name;
+    } else {
+      // Get from registry
+      const config = this.registry.getServer(name);
+      if (!config) {
+        throw new Error(`Server not found in registry: ${name}`);
+      }
+
+      // Start server if not running
+      if (!this.servers.has(name)) {
+        await this.startServer(name);
+      }
+
+      // Use default URL if not specified
+      url = "http://localhost:3000"; // Default URL
+    }
+
+    logger.info(`Connecting to MCP server: ${name} (${url})`);
+
+    try {
       // Create client
-      const client = await this.createClient(serverName, serverConfig);
-      
-      // Store connection
-      this.connections.set(serverName, client);
-      
+      const client: MCPClient = {
+        baseUrl: url,
+        // Initialize with other properties as needed
+      };
+
+      // Store client
+      this.clients.set(name, client);
+
+      // Update server info if this is a managed server
+      const server = this.servers.get(name);
+      if (server) {
+        server.client = client;
+        server.url = url;
+      }
+
+      logger.info(`Connected to MCP server: ${name}`);
       return client;
     } catch (error) {
-      logger.error(`Error connecting to MCP server ${serverName}`, { error });
-      return undefined;
+      logger.error(`Error connecting to MCP server: ${name}`, { error });
+      throw error;
     }
   }
-  
+
   /**
-   * Create a client for a server
+   * Disconnect from an MCP server
+   * @param name Server name or URL
    */
-  protected async createClient(serverName: string, config: MCPServerConfig): Promise<Client> {
-    // This is a placeholder - in a real implementation, we would create
-    // the appropriate transport based on the server type
-    const transport = {} as Transport;
-    
-    // Create client
-    const client = new Client(
-      {
-        name: `mcp-agent-ts-client-${serverName}`,
-        version: '0.0.1',
-      },
-      {
-        capabilities: {
-          tools: true,
-          resources: true,
-          prompts: true,
-          completions: true,
-        },
-      }
-    );
-    
-    // Connect to transport
-    await client.connect(transport);
-    
-    return client;
-  }
-  
-  /**
-   * Get a client by name
-   */
-  async getClient(serverName: string): Promise<Client | undefined> {
-    // If not initialized, initialize first
-    if (!this.initialized) {
-      await this.initialize();
-    }
-    
-    // Check if connection exists
-    let client = this.connections.get(serverName);
-    
-    // If not, try to connect
+  async disconnectClient(name: string): Promise<void> {
+    const client = this.clients.get(name);
     if (!client) {
-      client = await this.connectToServer(serverName);
+      logger.debug(`Client not connected: ${name}`);
+      return;
     }
-    
-    return client;
+
+    logger.info(`Disconnecting from MCP server: ${name}`);
+
+    try {
+      // Remove client
+      this.clients.delete(name);
+
+      // Update server info if this is a managed server
+      const server = this.servers.get(name);
+      if (server) {
+        server.client = undefined;
+      }
+
+      logger.info(`Disconnected from MCP server: ${name}`);
+    } catch (error) {
+      logger.error(`Error disconnecting from MCP server: ${name}`, { error });
+      throw error;
+    }
   }
-  
+
   /**
-   * Close all connections
+   * Get an MCP client
+   * @param name Server name or URL
+   * @returns MCP client or undefined if not connected
+   */
+  getClient(name: string): MCPClient | undefined {
+    return this.clients.get(name);
+  }
+
+  /**
+   * Get all connected clients
+   * @returns Map of server names to clients
+   */
+  getClients(): Map<string, MCPClient> {
+    return this.clients;
+  }
+
+  /**
+   * Close all connections and stop all servers
    */
   async close(): Promise<void> {
-    logger.debug('Closing MCP connections');
-    
-    // Close each connection
-    for (const [serverName, client] of this.connections.entries()) {
-      try {
-        await client.close();
-        logger.debug(`Closed connection to ${serverName}`);
-      } catch (error) {
-        logger.error(`Error closing connection to ${serverName}`, { error });
-      }
+    logger.info("Closing all MCP connections and servers");
+
+    // Disconnect all clients
+    for (const name of this.clients.keys()) {
+      await this.disconnectClient(name);
     }
-    
-    // Clear connections
-    this.connections.clear();
-    this.initialized = false;
+
+    // Stop all servers
+    for (const name of this.servers.keys()) {
+      await this.stopServer(name);
+    }
+
+    logger.info("All MCP connections and servers closed");
   }
 }
