@@ -8,6 +8,7 @@ This documentation provides an overview of the MCP Agent TypeScript framework, w
 - [Core Components](#core-components)
 - [Workflow Patterns](#workflow-patterns)
 - [Advanced Features](#advanced-features)
+- [Usage Telemetry](#usage-telemetry)
 - [Examples](#examples)
 
 ## Overview
@@ -217,6 +218,20 @@ const orchestrator = new Orchestrator({
   planner,
 });
 ```
+
+## Usage Telemetry
+
+MCP Agent anonymously collects usage metrics to help improve the product. The
+`usage_telemetry` section of your configuration controls this behaviour and is
+enabled by default:
+
+```yaml
+usage_telemetry:
+  enabled: true
+  enable_detailed_telemetry: false
+```
+
+Set `enabled` to `false` to disable all telemetry reporting.
 
 ## Examples
 
