@@ -2,9 +2,13 @@
  * CLI for MCP Agent
  */
 import { Command } from 'commander';
+import * as readline from 'readline';
 import { getSettings, updateSettings } from '../config/index.js';
 import { getLogger } from '../logging/logger.js';
 import { LogLevel } from '../types.js';
+import { MCPApp } from '../app.js';
+import { Agent } from '../agents/agent.js';
+import { Message, OpenAIAugmentedLLM } from '../workflows/llm/index.js';
 import { configCommand } from './commands/config.js';
 import { Application } from './terminal.js';
 
@@ -103,7 +107,7 @@ export function createProgram(): Command {
     .option('-i, --instruction <instruction>', 'Agent instruction')
     .option('-s, --servers <servers>', 'Comma-separated list of server names')
     .option('-v, --verbose', 'Enable verbose logging')
-    .action((options) => {
+    .action(async (options) => {
       // Set log level
       if (options.verbose) {
         updateSettings({
@@ -112,16 +116,62 @@ export function createProgram(): Command {
           },
         });
       }
-      
+
       // Parse servers
       const servers = options.servers ? options.servers.split(',') : [];
-      
+
       // Run agent
       console.log(`Running agent ${options.name}`);
       console.log(`Instruction: ${options.instruction || 'You are a helpful agent.'}`);
       console.log(`Servers: ${servers.join(', ') || 'None'}`);
-      
-      // TODO: Implement agent runner
+
+      // Instantiate app and agent
+      const app = new MCPApp({ name: options.name });
+
+      await app.run(async (app) => {
+        const agent = new Agent({
+          name: options.name,
+          instruction: options.instruction || 'You are a helpful agent.',
+          serverNames: servers,
+          context: app.context,
+        });
+
+        await agent.initialize();
+
+        // Attach a basic LLM
+        const llm = await agent.attachLLM(async (a) =>
+          new OpenAIAugmentedLLM({ agent: a })
+        );
+
+        // Simple conversation loop
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+
+        const question = (prompt: string) =>
+          new Promise<string>((resolve) => rl.question(prompt, resolve));
+
+        let messages: Message[] = [
+          { role: 'system', content: agent.instruction as string },
+        ];
+
+        while (true) {
+          const input = (await question('You: ')).trim();
+          if (input.toLowerCase() === 'exit') {
+            break;
+          }
+          messages.push({ role: 'user', content: input });
+          messages = await llm.runConversation(messages);
+          const last = messages[messages.length - 1];
+          if (last.role === 'assistant') {
+            console.log(`Assistant: ${last.content}`);
+          }
+        }
+
+        rl.close();
+        await agent.shutdown();
+      });
     });
   
   return program;
