@@ -25,6 +25,6 @@ mcp:
       url: "wss://server.smithery.ai/@smithery-ai/github/ws?config=BASE64_ENCODED_CONFIG"
 ```
 
-Finally, run `uv run main.py <your github username>`. E.g. `uv run main.py saqadri`
+Finally, run `npx tsx main.ts <your github username>`. E.g. `npx tsx main.ts saqadri`
 
 <img width="979" alt="image" src="https://github.com/user-attachments/assets/55ca84fe-b9f3-4930-9f8f-3e7fb7449e5b" />
