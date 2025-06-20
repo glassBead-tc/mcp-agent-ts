@@ -17,6 +17,7 @@ import { DecoratorRegistry } from '../executor/decorator_registry.js';
 import { ActivityRegistry } from '../executor/task_registry.js';
 import { HumanInputCallback, SignalWaitCallback } from '../types.js';
 import { ModelSelector } from '../workflows/llm/model_selector.js';
+import { sendUsageData } from '../telemetry/usage_tracking.js';
 
 // Import temporal executor conditionally
 let TemporalExecutor: any;
@@ -123,7 +124,11 @@ async function configureLogger(config: Settings): Promise<void> {
  * Configure usage telemetry
  */
 async function configureUsageTelemetry(_config: Settings): Promise<void> {
-  // TODO: Implement usage tracking
+  try {
+    await sendUsageData();
+  } catch (error) {
+    // Telemetry should never block initialization
+  }
 }
 
 /**
