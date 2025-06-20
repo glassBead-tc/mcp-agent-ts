@@ -39,5 +39,5 @@ To run the "Finder" agent, navigate to the example directory and execute:
 ```bash
 cd examples/mcp_basic_azure_agent
 
-uv run --extra azure main.py
+npx tsx main.ts
 ```

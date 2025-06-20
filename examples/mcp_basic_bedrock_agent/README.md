@@ -29,5 +29,5 @@ To run the "Finder" agent, navigate to the example directory and execute:
 ```bash
 cd examples/mcp_basic_bedrock_agent
 
-uv run main.py
+npx tsx main.ts
 ```

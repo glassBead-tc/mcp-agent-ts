@@ -13,6 +13,6 @@ ollama run llama3.1:8b
 ```
 
 Then simply run the example:
-`uv run main.py`
+`npx tsx main.ts`
 
 <img width="2160" alt="Image" src="https://github.com/user-attachments/assets/14cbfdf4-306f-486b-9ec1-6576acf0aeb7" />
