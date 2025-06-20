@@ -24,8 +24,10 @@ const mockAgent2 = {
 
 // Mock function
 const mockFunction = jest.fn();
-mockFunction.name = 'mockFunction';
-mockFunction.description = 'Mock function description';
+Object.defineProperty(mockFunction, 'name', { value: 'mockFunction' });
+Object.defineProperty(mockFunction, 'description', {
+  value: 'Mock function description',
+});
 
 describe('LLMRouter', () => {
   let router: LLMRouter;

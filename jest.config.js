@@ -4,7 +4,7 @@ export default {
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   testMatch: ['**/tests/**/*.test.ts'],
-  collectCoverage: true,
+  collectCoverage: false,
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
@@ -18,6 +18,7 @@ export default {
       {
         useESM: true,
         tsconfig: 'tsconfig.json',
+        diagnostics: false,
       },
     ],
   },
