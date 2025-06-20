@@ -65,5 +65,5 @@ uv sync --dev
 
 Run the application with:
 ```
-uv run main.py --owner <github-owner> --repo <repository-name> --channel <slack-channel>
+npx tsx main.ts --owner <github-owner> --repo <repository-name> --channel <slack-channel>
 ```

@@ -13,5 +13,5 @@ https://github.com/user-attachments/assets/04257ae4-a628-4c25-ace2-6540620cbf8b
 Script mode:
 
 ```bash
-uv run main.py
+npx tsx main.ts
 ```
