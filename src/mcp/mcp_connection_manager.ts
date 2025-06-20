@@ -3,9 +3,12 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { WebSocketClientTransport } from '@modelcontextprotocol/sdk/client/websocket.js';
 import { getLogger } from '../logging/logger.js';
 import { ServerRegistry, MCPServerConfig } from './server_registry.js';
 import { Context } from '../context.js';
+import { ServerInitializationError } from '../core/exceptions.js';
 
 const logger = getLogger('mcp_connection_manager');
 
@@ -87,9 +90,42 @@ export class MCPConnectionManager {
    * Create a client for a server
    */
   protected async createClient(serverName: string, config: MCPServerConfig): Promise<Client> {
-    // This is a placeholder - in a real implementation, we would create
-    // the appropriate transport based on the server type
-    const transport = {} as Transport;
+    let transport: Transport;
+
+    try {
+      if (config.type === 'websocket') {
+        if (!config.url) {
+          throw new ServerInitializationError(
+            `Missing url for websocket server '${serverName}'`
+          );
+        }
+        transport = new WebSocketClientTransport(new URL(config.url));
+      } else if (config.type === 'stdio') {
+        if (!config.command) {
+          throw new ServerInitializationError(
+            `Missing command for stdio server '${serverName}'`
+          );
+        }
+        transport = new StdioClientTransport({
+          command: config.command,
+          args: config.args ?? [],
+          env: config.env ? { ...getDefaultEnvironment(), ...config.env } : getDefaultEnvironment(),
+          cwd: config.cwd,
+        });
+      } else {
+        throw new ServerInitializationError(
+          `Unsupported server type '${config.type}' for server '${serverName}'`
+        );
+      }
+    } catch (error) {
+      if (error instanceof ServerInitializationError) {
+        throw error;
+      }
+      throw new ServerInitializationError(
+        `Failed to initialize transport for server '${serverName}'`,
+        String(error)
+      );
+    }
     
     // Create client
     const client = new Client(
