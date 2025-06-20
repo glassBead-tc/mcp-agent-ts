@@ -3,22 +3,20 @@
  */
 import { Agent } from '../../src/agents/agent';
 import { Context } from '../../src/context';
+import { MCPAggregator } from '../../src/mcp/mcp_aggregator';
 
-// Mock the MCPAggregator methods
-jest.mock('../../src/mcp/mcp_aggregator', () => {
-  return {
-    MCPAggregator: jest.fn().mockImplementation(() => {
-      return {
-        initialize: jest.fn().mockResolvedValue(undefined),
-        listTools: jest.fn().mockResolvedValue({ tools: [] }),
-        callTool: jest.fn().mockResolvedValue({
-          content: [{ type: 'text', text: 'Mock tool result' }],
-        }),
-        close: jest.fn().mockResolvedValue(undefined),
-      };
-    }),
-  };
-});
+// Spy on MCPAggregator methods to avoid real network calls
+jest
+  .spyOn(MCPAggregator.prototype, 'initialize')
+  .mockImplementation(function () {
+    (this as any).initialized = true;
+    return Promise.resolve();
+  });
+jest.spyOn(MCPAggregator.prototype, 'listTools').mockResolvedValue({ tools: [] });
+jest
+  .spyOn(MCPAggregator.prototype, 'callTool')
+  .mockResolvedValue({ content: [{ type: 'text', text: 'Mock tool result' }] });
+jest.spyOn(MCPAggregator.prototype, 'close').mockResolvedValue(undefined);
 
 describe('Agent', () => {
   let agent: Agent;

@@ -7,8 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as readline from 'readline';
-import { convertLogEvent, ProgressAction } from '../src/event_progress.js';
-import { Event } from '../src/logging/events.js';
+import { convertLogEvent, ProgressAction } from '../src/event_progress.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
