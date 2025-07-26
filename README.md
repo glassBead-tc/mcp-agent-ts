@@ -156,6 +156,10 @@ openai:
   default_model: gpt-4o
 ```
 
+The library automatically looks for a matching `mcp_agent.secrets.yaml` file in
+the same directory (or standard search paths) and merges any values it finds
+with your primary configuration.
+
 </details>
 
 <details>
